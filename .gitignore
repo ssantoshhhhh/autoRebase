@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+dist/
+build/
+.next/
+out/
+.docusaurus/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.ai_desc.txt
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Database
+prisma/migrations/
+*.db
+*.db-journal
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.terraform/
+.vagrant/
+ai_desc.txt
+
+# Docker
+.docker/
+
+# Artifacts
+setup-output.txt
+test-idfy.js
+create-db.js
+setup-db.js
+
+# Extra
+ai_voice_chat_1/
+env_copy.txt

@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  STATION_ADMIN
+  OFFICER
+}
+
+enum ComplaintStatus {
+  FILED
+  UNDER_REVIEW
+  ASSIGNED
+  IN_PROGRESS
+  ESCALATED
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum PriorityLevel {
+  EMERGENCY
+  HIGH
+  MODERATE
+  INFORMATIONAL
+}
+
+enum FileType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum NotificationType {
+  STATUS_UPDATE
+  ASSIGNMENT
+  EMERGENCY
+  SYSTEM
+}
+
+enum AuditUserType {
+  CITIZEN
+  POLICE
+}
+
+model User {
+  id             String   @id @default(uuid())
+  name           String?
+  mobileNumber   String?  @unique @map("mobile_number")
+  aadhaarMasked  String?  @unique @map("aadhaar_masked")  // Primary identity — IDfy verified
+  internalRef    String   @unique @map("internal_ref")    // synthetic key for anonymous/Aadhaar users
+  isVerified     Boolean  @default(false) @map("is_verified")
+  isAnonymous    Boolean  @default(false) @map("is_anonymous")
+  language       String   @default("en")
+  latitude       Float?
+  longitude      Float?
+  geofenceId     String?  @map("geofence_id")
+  complaintCount Int      @default(0) @map("complaint_count")
+  riskFlagCount  Int      @default(0) @map("risk_flag_count")
+  refreshToken   String?  @map("refresh_token")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  policeStation  PoliceStation? @relation(fields: [geofenceId], references: [id])
+  complaints     Complaint[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model PoliceStation {
+  id            String   @id @default(uuid())
+  stationName   String   @map("station_name")
+  district      String
+  state         String
+  latitude      Float
+  longitude     Float
+  radiusKm      Float    @default(5) @map("radius_km")
+  contactNumber String?  @map("contact_number")
+  status        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  policeUsers   PoliceUser[]
+  complaints    Complaint[]
+  users         User[]
+
+  @@map("police_stations")
+}
+
+model PoliceUser {
+  id           String     @id @default(uuid())
+  stationId    String     @map("station_id")
+  name         String
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(OFFICER)
+  isActive     Boolean    @default(true) @map("is_active")
+  lastLogin    DateTime?  @map("last_login")
+  refreshToken String?    @map("refresh_token")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  station         PoliceStation @relation(fields: [stationId], references: [id])
+  assignedComplaints Complaint[] @relation("AssignedOfficer")
+  auditLogs       AuditLog[]
+
+  @@map("police_users")
+}
+
+model Complaint {
+  id                String          @id @default(uuid())
+  trackingId        String          @unique @map("tracking_id")
+  userId            String          @map("user_id")
+  stationId         String          @map("station_id")
+  assignedOfficerId String?         @map("assigned_officer_id")
+  status            ComplaintStatus @default(FILED)
+  priorityLevel     PriorityLevel   @default(INFORMATIONAL) @map("priority_level")
+  priorityScore     Int             @default(0) @map("priority_score")
+  isEmergency       Boolean         @default(false) @map("is_emergency")
+  incidentType      String?         @map("incident_type")
+  summaryText       String?         @map("summary_text")
+  structuredJson    Json?           @map("structured_json")
+  transcript        String?
+  locationLat       Float?          @map("location_lat")
+  locationLng       Float?          @map("location_lng")
+  locationAddress   String?         @map("location_address")
+  isAnonymous       Boolean         @default(false) @map("is_anonymous")
+  duplicateOf       String?         @map("duplicate_of")
+  versionCount      Int             @default(1) @map("version_count")
+  legalConfirmed    Boolean         @default(false) @map("legal_confirmed")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  user             User          @relation(fields: [userId], references: [id])
+  station          PoliceStation @relation(fields: [stationId], references: [id])
+  assignedOfficer  PoliceUser?   @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+  evidence         Evidence[]
+  notifications    Notification[]
+  updates          ComplaintUpdate[]
+
+  @@index([stationId])
+  @@index([priorityLevel])
+  @@index([status])
+  @@index([createdAt])
+  @@map("complaints")
+}
+
+model ComplaintUpdate {
+  id          String   @id @default(uuid())
+  complaintId String   @map("complaint_id")
+  updatedBy   String   @map("updated_by")
+  updateType  String   @map("update_type")
+  content     String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+
+  @@map("complaint_updates")
+}
+
+model Evidence {
+  id            String    @id @default(uuid())
+  complaintId   String    @map("complaint_id")
+  fileUrl       String    @map("file_url")
+  fileType      FileType  @map("file_type")
+  hashChecksum  String?   @map("hash_checksum")
+  encryptedKey  String?   @map("encrypted_key")
+  uploadedBy    String    @map("uploaded_by")
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at")
+
+  complaint     Complaint @relation(fields: [complaintId], references: [id])
+
+  @@map("evidence")
+}
+
+model AuditLog {
+  id            String        @id @default(uuid())
+  userType      AuditUserType @map("user_type")
+  userId        String?       @map("user_id")
+  policeUserId  String?       @map("police_user_id")
+  action        String
+  resourceType  String?       @map("resource_type")
+  resourceId    String?       @map("resource_id")
+  ipAddress     String?       @map("ip_address")
+  metadata      Json?
+  timestamp     DateTime      @default(now())
+
+  user          User?       @relation(fields: [userId], references: [id])
+  policeUser    PoliceUser? @relation(fields: [policeUserId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  complaintId String?          @map("complaint_id")
+  type        NotificationType
+  message     String
+  isRead      Boolean          @default(false) @map("is_read")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  user        User      @relation(fields: [userId], references: [id])
+  complaint   Complaint? @relation(fields: [complaintId], references: [id])
+
+  @@map("notifications")
+}
+
