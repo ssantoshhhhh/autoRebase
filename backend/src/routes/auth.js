@@ -6,10 +6,13 @@ const { v4: uuidv4 } = require('uuid');
 const { prisma } = require('../utils/prisma');
 const { logger } = require('../utils/logger');
 const { AppError } = require('../middleware/errorHandler');
-const { 
-  verifyPan, 
-  sendMobileOtp, verifyMobileOtp,
-  maskAadhaar, validateAadhaar, validatePan 
+const {
+  verifyPan,
+  sendMobileOtp,
+  verifyMobileOtp,
+  maskAadhaar,
+  validateAadhaar,
+  validatePan,
 } = require('../services/idfyService');
 const aadhaarKyc = require('../services/aadhaarKycService');
 
@@ -17,26 +20,26 @@ const aadhaarKyc = require('../services/aadhaarKycService');
  * TOKEN UTILS
  */
 const generateTokens = (userId) => ({
-  accessToken: jwt.sign(
-    { userId, type: 'CITIZEN' },
-    process.env.JWT_ACCESS_SECRET,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m' }
-  ),
-  refreshToken: jwt.sign(
-    { userId, type: 'CITIZEN' },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' }
-  ),
+  accessToken: jwt.sign({ userId, type: 'CITIZEN' }, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
+  }),
+  refreshToken: jwt.sign({ userId, type: 'CITIZEN' }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d',
+  }),
 });
 
 const setAuthCookies = (res, accessToken, refreshToken) => {
   const prod = process.env.NODE_ENV === 'production';
   res.cookie('accessToken', accessToken, {
-    httpOnly: true, secure: prod, sameSite: prod ? 'strict' : 'lax',
+    httpOnly: true,
+    secure: prod,
+    sameSite: prod ? 'strict' : 'lax',
     maxAge: 15 * 60 * 1000,
   });
   res.cookie('refreshToken', refreshToken, {
-    httpOnly: true, secure: prod, sameSite: prod ? 'strict' : 'lax',
+    httpOnly: true,
+    secure: prod,
+    sameSite: prod ? 'strict' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/api/auth/refresh',
   });
@@ -63,7 +66,7 @@ router.post('/send-otp', async (req, res, next) => {
       taskId: result.taskId,
       provider: result.provider,
       language,
-      expiresAt: Date.now() + 10 * 60 * 1000
+      expiresAt: Date.now() + 10 * 60 * 1000,
     });
 
     res.json({
@@ -73,7 +76,9 @@ router.post('/send-otp', async (req, res, next) => {
       devMode: result.provider === 'dev',
       ...(result.devOtp ? { devOtp: result.devOtp } : {}),
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post('/verify-otp', async (req, res, next) => {
@@ -93,7 +98,7 @@ router.post('/verify-otp', async (req, res, next) => {
     if (!result.verified) throw new AppError('Invalid OTP', 400);
 
     pendingAadhaarTasks.delete(cleaned);
-    
+
     // Prioritize KYC name, fallback to manual name
     const finalName = result.name || manualName;
     const user = await upsertCitizenUser(maskAadhaar(cleaned), finalName, pending.language);
@@ -103,7 +108,9 @@ router.post('/verify-otp', async (req, res, next) => {
     setAuthCookies(res, accessToken, refreshToken);
 
     res.json({ user, accessToken });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +127,9 @@ router.post('/pan/details', async (req, res, next) => {
 
     const details = await verifyPan(cleaned);
     res.json(details);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post('/send-mobile-otp', async (req, res, next) => {
@@ -130,7 +139,9 @@ router.post('/send-mobile-otp', async (req, res, next) => {
 
     const result = await sendMobileOtp(mobile);
     res.json(result);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post('/pan/login', async (req, res, next) => {
@@ -153,14 +164,14 @@ router.post('/pan/login', async (req, res, next) => {
           mobileNumber: mobile,
           name: name || null,
           isVerified: true,
-          language
-        }
+          language,
+        },
       });
     } else {
       // Update name if provided from PAN details
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { name: name || user.name, language }
+        data: { name: name || user.name, language },
       });
     }
 
@@ -169,7 +180,9 @@ router.post('/pan/login', async (req, res, next) => {
     setAuthCookies(res, accessToken, refreshToken);
 
     res.json({ user, accessToken });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post('/mobile/login', async (req, res, next) => {
@@ -190,14 +203,14 @@ router.post('/mobile/login', async (req, res, next) => {
           mobileNumber: mobile,
           name: name || null,
           isVerified: true,
-          language
-        }
+          language,
+        },
       });
     } else if (name) {
       // Update name if it's provided and user exists
       user = await prisma.user.update({
         where: { id: user.id },
-        data: { name, language }
+        data: { name, language },
       });
     }
 
@@ -206,7 +219,9 @@ router.post('/mobile/login', async (req, res, next) => {
     setAuthCookies(res, accessToken, refreshToken);
 
     res.json({ user, accessToken });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -214,13 +229,13 @@ router.post('/mobile/login', async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function upsertCitizenUser(idMasked, name, language) {
-  let user = await prisma.user.findFirst({ 
-    where: { 
+  let user = await prisma.user.findFirst({
+    where: {
       OR: [
         { aadhaarMasked: idMasked },
         // If we have more identifiers we'd add them here
-      ]
-    } 
+      ],
+    },
   });
 
   if (!user) {
@@ -231,13 +246,13 @@ async function upsertCitizenUser(idMasked, name, language) {
         aadhaarMasked: idMasked,
         name: name || null,
         isVerified: true,
-        language
-      }
+        language,
+      },
     });
   } else {
     user = await prisma.user.update({
       where: { id: user.id },
-      data: { name: name || user.name, language }
+      data: { name: name || user.name, language },
     });
   }
   return user;
@@ -266,7 +281,9 @@ router.post('/refresh', async (req, res, next) => {
     setAuthCookies(res, newAccess, newRefresh);
 
     res.json({ accessToken: newAccess });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post('/logout', async (req, res, next) => {
@@ -289,13 +306,15 @@ router.post('/anonymous', async (req, res, next) => {
         id: uuidv4(),
         internalRef: `anon_${uuidv4().slice(0, 8)}`,
         isAnonymous: true,
-        isVerified: true
-      }
+        isVerified: true,
+      },
     });
     const { accessToken, refreshToken } = generateTokens(user.id);
     setAuthCookies(res, accessToken, refreshToken);
     res.json({ user, accessToken });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

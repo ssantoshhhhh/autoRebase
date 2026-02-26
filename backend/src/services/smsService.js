@@ -22,11 +22,11 @@ async function sendSMS(to, body) {
     const client = twilio(TWILIO_SID, TWILIO_TOKEN);
     // Ensure number is in E.164 format for India if no + prefix
     const formatted = to.startsWith('+') ? to : `+91${to}`;
-    
+
     await client.messages.create({
       body,
       from: TWILIO_FROM,
-      to: formatted
+      to: formatted,
     });
 
     logger.info(`SMS sent successfully to ${to}`);

@@ -13,7 +13,7 @@ const { sendSMS } = require('../services/smsService');
 router.post('/start-session', authenticateUser, async (req, res, next) => {
   try {
     const { language = 'en', latitude, longitude, isAnonymous = false } = req.body;
-    
+
     let stationId = null;
     let locationAddress = null;
 
@@ -52,7 +52,7 @@ router.post('/start-session', authenticateUser, async (req, res, next) => {
 router.post('/chat', authenticateUser, async (req, res, next) => {
   try {
     const { sessionId, message, audioBase64, language } = req.body;
-    
+
     if (!sessionId) throw new AppError('Session ID required', 400, 'NO_SESSION');
 
     const payload = {
@@ -78,7 +78,8 @@ router.post('/chat', authenticateUser, async (req, res, next) => {
   } catch (error) {
     if (error.code === 'ECONNREFUSED') {
       return res.json({
-        response: 'I am experiencing technical difficulties. Please describe your complaint in detail.',
+        response:
+          'I am experiencing technical difficulties. Please describe your complaint in detail.',
         stage: 'NARRATIVE',
         isComplete: false,
       });
@@ -91,11 +92,11 @@ router.post('/chat', authenticateUser, async (req, res, next) => {
 // Final submission after AI conversation
 router.post('/submit', authenticateUser, async (req, res, next) => {
   try {
-    const { 
-      sessionId, 
+    const {
+      sessionId,
       transcript,
       structuredJson,
-      latitude, 
+      latitude,
       longitude,
       locationAddress,
       legalConfirmed,
@@ -124,7 +125,11 @@ router.post('/submit', authenticateUser, async (req, res, next) => {
     }
 
     if (!stationId) {
-      throw new AppError('Please select a police station to file your complaint', 400, 'STATION_REQUIRED');
+      throw new AppError(
+        'Please select a police station to file your complaint',
+        400,
+        'STATION_REQUIRED'
+      );
     }
 
     const trackingId = `REVA-${new Date().getFullYear()}-${uuidv4().slice(0, 8).toUpperCase()}`;
@@ -177,7 +182,7 @@ router.post('/submit', authenticateUser, async (req, res, next) => {
     // Send SMS with Tracking ID
     if (req.user.mobileNumber) {
       const smsBody = `REVA ALERT: Your complaint has been filed. Tracking ID: ${trackingId}. Use this to track status at REVA portal.`;
-      sendSMS(req.user.mobileNumber, smsBody).catch(e => logger.error('Deferred SMS failed:', e));
+      sendSMS(req.user.mobileNumber, smsBody).catch((e) => logger.error('Deferred SMS failed:', e));
     }
 
     // Emergency workflow
@@ -209,7 +214,7 @@ router.post('/submit', authenticateUser, async (req, res, next) => {
 router.get('/track/:trackingId', async (req, res, next) => {
   try {
     const { trackingId } = req.params;
-    
+
     const complaint = await prisma.complaint.findUnique({
       where: { trackingId },
       select: {
@@ -327,12 +332,15 @@ async function findNearestStation(lat, lng) {
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 module.exports = router;

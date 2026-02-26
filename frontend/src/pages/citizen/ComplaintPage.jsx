@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import api from "../../utils/api";
-import toast from "react-hot-toast";
-import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
-import { useSpeechSynthesis } from "../../hooks/useSpeechSynthesis";
-import { getAIResponse } from "../../utils/ai";
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../utils/api';
+import toast from 'react-hot-toast';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis';
+import { getAIResponse } from '../../utils/ai';
 import {
   Mic,
   MicOff,
@@ -26,7 +26,7 @@ import {
   Navigation,
   ChevronRight,
   Search,
-} from "lucide-react";
+} from 'lucide-react';
 
 export default function ComplaintPage() {
   const { user, logoutCitizen } = useAuth();
@@ -34,24 +34,22 @@ export default function ComplaintPage() {
 
   const [messages, setMessages] = useState([
     {
-      id: "1",
+      id: '1',
       text: `Hello! I'm REVA, your AI Police Assistant. How can I help you today?`,
-      role: "ai",
+      role: 'ai',
       timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
+        hour: '2-digit',
+        minute: '2-digit',
       }),
     },
   ]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [autoStop, setAutoStop] = useState(false);
   const [autoResumeMic, setAutoResumeMic] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [language, setLanguage] = useState(
-    user?.language === "hi" ? "hi" : "en",
-  );
+  const [language, setLanguage] = useState(user?.language === 'hi' ? 'hi' : 'en');
 
   const [location, setLocation] = useState(null);
   const [activeStation, setActiveStation] = useState(null);
@@ -60,25 +58,25 @@ export default function ComplaintPage() {
   const [showStationPicker, setShowStationPicker] = useState(false);
   const [availableStations, setAvailableStations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
 
   const getLocale = (lang) => {
     const locales = {
-      en: "en-IN",
-      hi: "hi-IN",
-      te: "te-IN",
-      ta: "ta-IN",
-      kn: "kn-IN",
-      mr: "mr-IN",
-      bn: "bn-IN",
-      gu: "gu-IN",
-      ml: "ml-IN",
-      pa: "pa-IN",
+      en: 'en-IN',
+      hi: 'hi-IN',
+      te: 'te-IN',
+      ta: 'ta-IN',
+      kn: 'kn-IN',
+      mr: 'mr-IN',
+      bn: 'bn-IN',
+      gu: 'gu-IN',
+      ml: 'ml-IN',
+      pa: 'pa-IN',
     };
-    return locales[lang] || "en-IN";
+    return locales[lang] || 'en-IN';
   };
 
   // Initialize Voice Hooks
@@ -92,26 +90,17 @@ export default function ComplaintPage() {
     resetTranscript,
   } = useSpeechRecognition(getLocale(language), autoStop);
 
-  const {
-    speak,
-    cancel: cancelSpeech,
-    speaking: isSpeaking,
-    voices,
-  } = useSpeechSynthesis();
+  const { speak, cancel: cancelSpeech, speaking: isSpeaking, voices } = useSpeechSynthesis();
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   useEffect(scrollToBottom, [messages, interimTranscript, isLoading]);
 
   // Auto-enable mic after AI finishes speaking (Hands-free mode)
   const prevSpeakingRef = useRef(false);
   useEffect(() => {
-    if (
-      autoResumeMic &&
-      prevSpeakingRef.current === true &&
-      isSpeaking === false
-    ) {
+    if (autoResumeMic && prevSpeakingRef.current === true && isSpeaking === false) {
       const timer = setTimeout(() => {
         if (!isListening && !isSpeaking && !isLoading && !isSubmitting) {
           resetTranscript();
@@ -121,14 +110,7 @@ export default function ComplaintPage() {
       return () => clearTimeout(timer);
     }
     prevSpeakingRef.current = isSpeaking;
-  }, [
-    isSpeaking,
-    isListening,
-    isLoading,
-    isSubmitting,
-    startSTT,
-    resetTranscript,
-  ]);
+  }, [isSpeaking, isListening, isLoading, isSubmitting, startSTT, resetTranscript]);
 
   const handleToggleListening = () => {
     if (isListening) {
@@ -145,15 +127,13 @@ export default function ComplaintPage() {
   useEffect(() => {
     const fetchLocationAndGeofence = async () => {
       setIsCheckingGeofence(true);
-      if ("geolocation" in navigator) {
+      if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const { latitude, longitude } = position.coords;
             setLocation({ latitude, longitude });
             try {
-              const res = await api.get(
-                `/api/stations/nearest?lat=${latitude}&lng=${longitude}`,
-              );
+              const res = await api.get(`/api/stations/nearest?lat=${latitude}&lng=${longitude}`);
               if (res.data.withinGeofence) {
                 setActiveStation(res.data.station);
                 setIsWithinGeofence(true);
@@ -162,16 +142,16 @@ export default function ComplaintPage() {
                 setIsWithinGeofence(false);
               }
             } catch (err) {
-              console.error("Geofence check failed", err);
+              console.error('Geofence check failed', err);
             } finally {
               setIsCheckingGeofence(false);
             }
           },
           (err) => {
-            console.error("Location access denied", err);
+            console.error('Location access denied', err);
             setIsCheckingGeofence(false);
           },
-          { enableHighAccuracy: true },
+          { enableHighAccuracy: true }
         );
       } else {
         setIsCheckingGeofence(false);
@@ -183,10 +163,10 @@ export default function ComplaintPage() {
 
   const fetchAllStations = async () => {
     try {
-      const res = await api.get("/api/stations");
+      const res = await api.get('/api/stations');
       setAvailableStations(res.data.stations);
     } catch (err) {
-      toast.error("Failed to load police stations");
+      toast.error('Failed to load police stations');
     }
   };
 
@@ -200,47 +180,44 @@ export default function ComplaintPage() {
     if (!activeStation) {
       await fetchAllStations();
       setShowStationPicker(true);
-      toast("Please select a police station to file your complaint");
+      toast('Please select a police station to file your complaint');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const transcript = messages
-        .map((m) => `${m.role === "ai" ? "REVA" : "USER"}: ${m.text}`)
-        .join("\n");
+        .map((m) => `${m.role === 'ai' ? 'REVA' : 'USER'}: ${m.text}`)
+        .join('\n');
 
-      const response = await api.post("/api/complaints/submit", {
+      const response = await api.post('/api/complaints/submit', {
         transcript,
         latitude: location?.latitude,
         longitude: location?.longitude,
         locationAddress: activeStation
           ? `Near ${activeStation.stationName}, ${activeStation.district}`
-          : "Unknown",
+          : 'Unknown',
         legalConfirmed: true,
         structuredJson: {
           stationId: activeStation.id,
-          incidentType: aiData?.incidentType || "AI Assistant Report",
-          incidentLocation: aiData?.location || "Detected",
-          incidentDescription: aiData?.description || "See transcript",
+          incidentType: aiData?.incidentType || 'AI Assistant Report',
+          incidentLocation: aiData?.location || 'Detected',
+          incidentDescription: aiData?.description || 'See transcript',
           incidentDateTime: aiData?.dateTime || new Date().toISOString(),
         },
       });
 
-      toast.success("Complaint filed successfully!");
+      toast.success('Complaint filed successfully!');
       navigate(`/citizen/my-complaints`);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Submission failed");
+      toast.error(err.response?.data?.message || 'Submission failed');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   useEffect(() => {
-    if (
-      !isListening &&
-      (shouldProcessRef.current || (autoStop && sttTranscript.trim()))
-    ) {
+    if (!isListening && (shouldProcessRef.current || (autoStop && sttTranscript.trim()))) {
       if (sttTranscript.trim()) {
         sendMessage(sttTranscript);
       }
@@ -255,10 +232,10 @@ export default function ComplaintPage() {
     const userMsg = {
       id: Date.now().toString(),
       text: text,
-      role: "user",
+      role: 'user',
       timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
+        hour: '2-digit',
+        minute: '2-digit',
       }),
     };
 
@@ -267,7 +244,7 @@ export default function ComplaintPage() {
 
     try {
       const history = messages.map((m) => ({
-        role: m.role === "ai" ? "assistant" : "user",
+        role: m.role === 'ai' ? 'assistant' : 'user',
         content: m.text,
       }));
 
@@ -276,7 +253,7 @@ export default function ComplaintPage() {
         mobile: user?.mobileNumber,
         location: user?.policeStation?.stationName
           ? `${user.policeStation.stationName}, ${user.policeStation.district}`
-          : "Unknown",
+          : 'Unknown',
         history: history.slice(-5), // Send last 5 messages for context
       };
 
@@ -290,19 +267,19 @@ export default function ComplaintPage() {
       if (submitMatch) {
         try {
           aiData = JSON.parse(submitMatch[1]);
-          aiText = aiResponseRaw.replace(submitMatch[0], "").trim();
+          aiText = aiResponseRaw.replace(submitMatch[0], '').trim();
         } catch (e) {
-          console.error("Failed to parse AI submission data", e);
+          console.error('Failed to parse AI submission data', e);
         }
       }
 
       const aiMsg = {
         id: (Date.now() + 1).toString(),
         text: aiText,
-        role: "ai",
+        role: 'ai',
         timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
+          hour: '2-digit',
+          minute: '2-digit',
         }),
       };
 
@@ -312,7 +289,7 @@ export default function ComplaintPage() {
       const voicePrefix = getLocale(language);
       const voice =
         voices.find((v) => v.lang.startsWith(voicePrefix)) ||
-        voices.find((v) => v.lang.startsWith("en-IN"));
+        voices.find((v) => v.lang.startsWith('en-IN'));
 
       // Ensure mic is off while AI starts to speak
       stopSTT();
@@ -325,7 +302,7 @@ export default function ComplaintPage() {
         }, 2000); // Small delay to let user hear the "filing" message
       }
     } catch (err) {
-      toast.error("AI Error");
+      toast.error('AI Error');
       setIsLoading(false);
     }
   };
@@ -333,41 +310,41 @@ export default function ComplaintPage() {
   return (
     <div
       style={{
-        height: "100vh",
-        backgroundColor: "#080c14",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        overflow: "hidden",
-        fontFamily: "sans-serif",
+        height: '100vh',
+        backgroundColor: '#080c14',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: 'sans-serif',
       }}
     >
       {/* Background Blobs (Premium Look) */}
       <div
         style={{
-          position: "absolute",
-          top: "-10%",
-          left: "-10%",
-          width: "60%",
-          height: "60%",
-          backgroundColor: "rgba(30, 58, 138, 0.15)",
-          borderRadius: "50%",
-          filter: "blur(120px)",
-          pointerEvents: "none",
+          position: 'absolute',
+          top: '-10%',
+          left: '-10%',
+          width: '60%',
+          height: '60%',
+          backgroundColor: 'rgba(30, 58, 138, 0.15)',
+          borderRadius: '50%',
+          filter: 'blur(120px)',
+          pointerEvents: 'none',
         }}
       />
       <div
         style={{
-          position: "absolute",
-          bottom: "-10%",
-          right: "-10%",
-          width: "50%",
-          height: "50%",
-          backgroundColor: "rgba(76, 29, 149, 0.15)",
-          borderRadius: "50%",
-          filter: "blur(120px)",
-          pointerEvents: "none",
+          position: 'absolute',
+          bottom: '-10%',
+          right: '-10%',
+          width: '50%',
+          height: '50%',
+          backgroundColor: 'rgba(76, 29, 149, 0.15)',
+          borderRadius: '50%',
+          filter: 'blur(120px)',
+          pointerEvents: 'none',
         }}
       />
 
@@ -376,8 +353,8 @@ export default function ComplaintPage() {
         className="ai-orb-container"
         style={{
           opacity: isSpeaking ? 1 : 0,
-          visibility: isSpeaking ? "visible" : "hidden",
-          transition: "opacity 0.8s ease-in-out, visibility 0.8s",
+          visibility: isSpeaking ? 'visible' : 'hidden',
+          transition: 'opacity 0.8s ease-in-out, visibility 0.8s',
         }}
       >
         <div className="ai-orb-ring ai-orb-ring-1"></div>
@@ -389,83 +366,81 @@ export default function ComplaintPage() {
       {/* Header */}
       <header
         style={{
-          position: "relative",
+          position: 'relative',
           zIndex: 10,
-          padding: "12px 24px",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-          backgroundColor: "rgba(255,255,255,0.02)",
-          backdropFilter: "blur(10px)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          padding: '12px 24px',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          backgroundColor: 'rgba(255,255,255,0.02)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: "40px",
-              height: "40px",
-              backgroundColor: "#2563eb",
-              borderRadius: "10px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 0 20px rgba(37, 99, 235, 0.4)",
+              width: '40px',
+              height: '40px',
+              backgroundColor: '#2563eb',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 20px rgba(37, 99, 235, 0.4)',
             }}
           >
             <Shield size={24} color="white" />
           </div>
           <div>
-            <div style={{ fontWeight: "700", fontSize: "1.1rem" }}>REVA AI</div>
+            <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>REVA AI</div>
             <div
               style={{
-                fontSize: "0.65rem",
-                color: "#60a5fa",
-                letterSpacing: "1.5px",
-                textTransform: "uppercase",
+                fontSize: '0.65rem',
+                color: '#60a5fa',
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
               }}
             >
               Police Assistant
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              fontSize: "10px",
-              fontWeight: "700",
-              padding: "4px 10px",
-              borderRadius: "20px",
-              border: "1px solid " + (isListening ? "#ef4444" : "#3b82f6"),
-              color: isListening ? "#ef4444" : "#60a5fa",
-              backgroundColor: isListening
-                ? "rgba(239, 68, 68, 0.1)"
-                : "rgba(59, 130, 246, 0.1)",
+              fontSize: '10px',
+              fontWeight: '700',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              border: '1px solid ' + (isListening ? '#ef4444' : '#3b82f6'),
+              color: isListening ? '#ef4444' : '#60a5fa',
+              backgroundColor: isListening ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
             }}
           >
             {isInitializing
-              ? "CONNECTING..."
+              ? 'CONNECTING...'
               : isListening
-                ? "LISTENING..."
+                ? 'LISTENING...'
                 : isLoading
-                  ? "THINKING..."
-                  : "READY"}
+                  ? 'THINKING...'
+                  : 'READY'}
           </div>
 
           <div
             style={{
-              fontSize: "10px",
-              fontWeight: "700",
-              padding: "4px 10px",
-              borderRadius: "20px",
-              border: activeStation ? "1px solid #10b981" : "1px solid #f59e0b",
-              color: activeStation ? "#10b981" : "#f59e0b",
+              fontSize: '10px',
+              fontWeight: '700',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              border: activeStation ? '1px solid #10b981' : '1px solid #f59e0b',
+              color: activeStation ? '#10b981' : '#f59e0b',
               backgroundColor: activeStation
-                ? "rgba(16, 185, 129, 0.1)"
-                : "rgba(245, 158, 11, 0.1)",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
+                ? 'rgba(16, 185, 129, 0.1)'
+                : 'rgba(245, 158, 11, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
           >
             {activeStation ? (
@@ -473,7 +448,7 @@ export default function ComplaintPage() {
                 <Shield size={10} /> {activeStation.stationName}
               </>
             ) : isCheckingGeofence ? (
-              "Locating..."
+              'Locating...'
             ) : (
               <>
                 <AlertCircle size={10} /> Select Station
@@ -483,11 +458,11 @@ export default function ComplaintPage() {
           <button
             onClick={logoutCitizen}
             style={{
-              background: "none",
-              border: "none",
-              color: "rgba(255,255,255,0.5)",
-              fontSize: "12px",
-              cursor: "pointer",
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '12px',
+              cursor: 'pointer',
             }}
           >
             Logout
@@ -499,82 +474,71 @@ export default function ComplaintPage() {
       <main
         style={{
           flex: 1,
-          overflowY: "auto",
-          padding: "24px",
-          paddingBottom: "150px",
-          position: "relative",
+          overflowY: 'auto',
+          padding: '24px',
+          paddingBottom: '150px',
+          position: 'relative',
           zIndex: 1,
         }}
       >
         <div
           style={{
-            maxWidth: "700px",
-            margin: "0 auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: "24px",
+            maxWidth: '700px',
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
           }}
         >
           {messages.map((msg) => (
             <div
               key={msg.id}
               style={{
-                display: "flex",
-                justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                width: "100%",
+                display: 'flex',
+                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                width: '100%',
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: msg.role === "user" ? "row-reverse" : "row",
-                  alignItems: "flex-end",
-                  gap: "12px",
-                  maxWidth: "85%",
+                  display: 'flex',
+                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+                  alignItems: 'flex-end',
+                  gap: '12px',
+                  maxWidth: '85%',
                 }}
               >
                 <div
                   style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    backgroundColor:
-                      msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: msg.role === 'user' ? '#4f46e5' : 'rgba(255,255,255,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     flexShrink: 0,
                   }}
                 >
-                  {msg.role === "user" ? (
-                    <User size={16} />
-                  ) : (
-                    <Bot size={16} color="#60a5fa" />
-                  )}
+                  {msg.role === 'user' ? <User size={16} /> : <Bot size={16} color="#60a5fa" />}
                 </div>
                 <div
                   style={{
-                    padding: "12px 18px",
-                    borderRadius:
-                      msg.role === "user"
-                        ? "20px 20px 4px 20px"
-                        : "20px 20px 20px 4px",
-                    backgroundColor:
-                      msg.role === "user"
-                        ? "#4f46e5"
-                        : "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    fontSize: "0.95rem",
-                    lineHeight: "1.5",
+                    padding: '12px 18px',
+                    borderRadius: msg.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                    backgroundColor: msg.role === 'user' ? '#4f46e5' : 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.5',
                   }}
                 >
                   {msg.text}
                   <div
                     style={{
-                      fontSize: "10px",
-                      color: "rgba(255,255,255,0.3)",
-                      textAlign: "right",
-                      marginTop: "4px",
+                      fontSize: '10px',
+                      color: 'rgba(255,255,255,0.3)',
+                      textAlign: 'right',
+                      marginTop: '4px',
                     }}
                   >
                     {msg.timestamp}
@@ -584,60 +548,59 @@ export default function ComplaintPage() {
             </div>
           ))}
           {isLoading && (
-            <div style={{ display: "flex", gap: "8px", padding: "10px" }}>
+            <div style={{ display: 'flex', gap: '8px', padding: '10px' }}>
               <div
                 style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#3b82f6",
-                  borderRadius: "50%",
-                  animation: "pulse 1.5s infinite",
+                  width: '8px',
+                  height: '8px',
+                  backgroundColor: '#3b82f6',
+                  borderRadius: '50%',
+                  animation: 'pulse 1.5s infinite',
                 }}
               />
               <div
                 style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#3b82f6",
-                  borderRadius: "50%",
-                  animation: "pulse 1.5s infinite 0.2s",
+                  width: '8px',
+                  height: '8px',
+                  backgroundColor: '#3b82f6',
+                  borderRadius: '50%',
+                  animation: 'pulse 1.5s infinite 0.2s',
                 }}
               />
               <div
                 style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#3b82f6",
-                  borderRadius: "50%",
-                  animation: "pulse 1.5s infinite 0.4s",
+                  width: '8px',
+                  height: '8px',
+                  backgroundColor: '#3b82f6',
+                  borderRadius: '50%',
+                  animation: 'pulse 1.5s infinite 0.4s',
                 }}
               />
             </div>
           )}
-          {(isListening || sttTranscript) &&
-            (sttTranscript || interimTranscript) && (
-              <div
-                style={{
-                  alignSelf: "flex-end",
-                  padding: "10px 16px",
-                  backgroundColor: "rgba(79, 70, 229, 0.1)",
-                  borderRadius: "15px",
-                  border: "1px dashed rgba(79, 70, 229, 0.4)",
-                  color: "#93c5fd",
-                  fontSize: "0.9rem",
-                  maxWidth: "80%",
-                  wordBreak: "break-word",
-                }}
-              >
-                {sttTranscript}
-                {interimTranscript
-                  ? sttTranscript
-                    ? " " + interimTranscript
-                    : interimTranscript
-                  : ""}
-                ...
-              </div>
-            )}
+          {(isListening || sttTranscript) && (sttTranscript || interimTranscript) && (
+            <div
+              style={{
+                alignSelf: 'flex-end',
+                padding: '10px 16px',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                borderRadius: '15px',
+                border: '1px dashed rgba(79, 70, 229, 0.4)',
+                color: '#93c5fd',
+                fontSize: '0.9rem',
+                maxWidth: '80%',
+                wordBreak: 'break-word',
+              }}
+            >
+              {sttTranscript}
+              {interimTranscript
+                ? sttTranscript
+                  ? ' ' + interimTranscript
+                  : interimTranscript
+                : ''}
+              ...
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </main>
@@ -645,30 +608,30 @@ export default function ComplaintPage() {
       {/* Controls Hub */}
       <div
         style={{
-          position: "fixed",
-          bottom: "32px",
-          left: "50%",
-          transform: "translateX(-50%)",
+          position: 'fixed',
+          bottom: '32px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           zIndex: 50,
-          display: "flex",
-          alignItems: "center",
-          gap: "16px",
-          backgroundColor: "rgba(255,255,255,0.08)",
-          backdropFilter: "blur(20px)",
-          padding: "10px 24px",
-          borderRadius: "50px",
-          border: "1px solid rgba(255,255,255,0.15)",
-          boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(20px)',
+          padding: '10px 24px',
+          borderRadius: '50px',
+          border: '1px solid rgba(255,255,255,0.15)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
         }}
       >
         <button
           onClick={() => setIsSettingsOpen(true)}
           style={{
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.6)",
-            cursor: "pointer",
-            padding: "8px",
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255,255,255,0.6)',
+            cursor: 'pointer',
+            padding: '8px',
           }}
         >
           <Settings size={22} />
@@ -678,32 +641,30 @@ export default function ComplaintPage() {
           onClick={finalizeComplaint}
           disabled={isSubmitting}
           style={{
-            background: isSubmitting ? "rgba(255,255,255,0.05)" : "#10b981",
-            border: "none",
-            color: "white",
-            cursor: "pointer",
-            padding: "8px 16px",
-            borderRadius: "20px",
-            fontSize: "12px",
-            fontWeight: "700",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            boxShadow: activeStation
-              ? "0 0 15px rgba(16, 185, 129, 0.3)"
-              : "none",
-            transition: "all 0.3s",
+            background: isSubmitting ? 'rgba(255,255,255,0.05)' : '#10b981',
+            border: 'none',
+            color: 'white',
+            cursor: 'pointer',
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '12px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: activeStation ? '0 0 15px rgba(16, 185, 129, 0.3)' : 'none',
+            transition: 'all 0.3s',
           }}
         >
-          {isSubmitting ? "FILING..." : "FILE COMPLAINT"}
+          {isSubmitting ? 'FILING...' : 'FILE COMPLAINT'}
           <ChevronRight size={16} />
         </button>
 
         <div
           style={{
-            width: "1px",
-            height: "24px",
-            backgroundColor: "rgba(255,255,255,0.1)",
+            width: '1px',
+            height: '24px',
+            backgroundColor: 'rgba(255,255,255,0.1)',
           }}
         />
 
@@ -713,11 +674,11 @@ export default function ComplaintPage() {
             stopSTT();
           }}
           style={{
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.6)",
-            cursor: "pointer",
-            padding: "8px",
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255,255,255,0.6)',
+            cursor: 'pointer',
+            padding: '8px',
           }}
         >
           <Square size={22} />
@@ -727,44 +688,44 @@ export default function ComplaintPage() {
           onClick={handleToggleListening}
           disabled={isInitializing || isSpeaking}
           style={{
-            width: "64px",
-            height: "64px",
-            borderRadius: "50%",
-            border: "none",
-            cursor: isInitializing || isSpeaking ? "not-allowed" : "pointer",
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: isInitializing || isSpeaking ? 'not-allowed' : 'pointer',
             backgroundColor: isInitializing
-              ? "#4b5563"
+              ? '#4b5563'
               : isSpeaking
-                ? "#94a3b8"
+                ? '#94a3b8'
                 : isListening
-                  ? "#ef4444"
-                  : "#2563eb",
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+                  ? '#ef4444'
+                  : '#2563eb',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             boxShadow:
-              "0 0 30px " +
+              '0 0 30px ' +
               (isInitializing
-                ? "rgba(75, 85, 99, 0.5)"
+                ? 'rgba(75, 85, 99, 0.5)'
                 : isSpeaking
-                  ? "rgba(148, 163, 184, 0.3)"
+                  ? 'rgba(148, 163, 184, 0.3)'
                   : isListening
-                    ? "rgba(239, 68, 68, 0.5)"
-                    : "rgba(37, 99, 235, 0.5)"),
-            transition: "all 0.3s",
+                    ? 'rgba(239, 68, 68, 0.5)'
+                    : 'rgba(37, 99, 235, 0.5)'),
+            transition: 'all 0.3s',
             opacity: isInitializing || isSpeaking ? 0.7 : 1,
           }}
         >
           {isInitializing ? (
             <div
               style={{
-                width: "24px",
-                height: "24px",
-                border: "3px solid white",
-                borderTop: "3px solid transparent",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
+                width: '24px',
+                height: '24px',
+                border: '3px solid white',
+                borderTop: '3px solid transparent',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
               }}
             />
           ) : isSpeaking ? (
@@ -778,12 +739,12 @@ export default function ComplaintPage() {
 
         <div
           style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            backgroundColor: "rgba(255,255,255,0.05)",
-            borderRadius: "20px",
-            padding: "0 12px",
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            borderRadius: '20px',
+            padding: '0 12px',
           }}
         >
           <Globe size={14} color="rgba(255,255,255,0.5)" />
@@ -791,44 +752,44 @@ export default function ComplaintPage() {
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
             style={{
-              background: "none",
-              border: "none",
-              color: "white",
-              padding: "8px 4px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "700",
-              outline: "none",
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              padding: '8px 4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '700',
+              outline: 'none',
             }}
           >
-            <option value="en" style={{ backgroundColor: "#1e293b" }}>
+            <option value="en" style={{ backgroundColor: '#1e293b' }}>
               EN (English)
             </option>
-            <option value="hi" style={{ backgroundColor: "#1e293b" }}>
+            <option value="hi" style={{ backgroundColor: '#1e293b' }}>
               HI (Hindi)
             </option>
-            <option value="te" style={{ backgroundColor: "#1e293b" }}>
+            <option value="te" style={{ backgroundColor: '#1e293b' }}>
               TE (Telugu)
             </option>
-            <option value="ta" style={{ backgroundColor: "#1e293b" }}>
+            <option value="ta" style={{ backgroundColor: '#1e293b' }}>
               TA (Tamil)
             </option>
-            <option value="kn" style={{ backgroundColor: "#1e293b" }}>
+            <option value="kn" style={{ backgroundColor: '#1e293b' }}>
               KN (Kannada)
             </option>
-            <option value="mr" style={{ backgroundColor: "#1e293b" }}>
+            <option value="mr" style={{ backgroundColor: '#1e293b' }}>
               MR (Marathi)
             </option>
-            <option value="bn" style={{ backgroundColor: "#1e293b" }}>
+            <option value="bn" style={{ backgroundColor: '#1e293b' }}>
               BN (Bengali)
             </option>
-            <option value="gu" style={{ backgroundColor: "#1e293b" }}>
+            <option value="gu" style={{ backgroundColor: '#1e293b' }}>
               GU (Gujarati)
             </option>
-            <option value="ml" style={{ backgroundColor: "#1e293b" }}>
+            <option value="ml" style={{ backgroundColor: '#1e293b' }}>
               ML (Malayalam)
             </option>
-            <option value="pa" style={{ backgroundColor: "#1e293b" }}>
+            <option value="pa" style={{ backgroundColor: '#1e293b' }}>
               PA (Punjabi)
             </option>
           </select>
@@ -839,42 +800,42 @@ export default function ComplaintPage() {
       {isSettingsOpen && (
         <div
           style={{
-            position: "fixed",
+            position: 'fixed',
             inset: 0,
             zIndex: 100,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(5px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
           }}
         >
           <div
             style={{
-              backgroundColor: "#1e293b",
-              borderRadius: "24px",
-              width: "100%",
-              maxWidth: "380px",
-              padding: "24px",
-              border: "1px solid rgba(255,255,255,0.1)",
+              backgroundColor: '#1e293b',
+              borderRadius: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              padding: '24px',
+              border: '1px solid rgba(255,255,255,0.1)',
             }}
           >
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: "24px",
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '24px',
               }}
             >
               <h3 style={{ margin: 0 }}>Voice Settings</h3>
               <button
                 onClick={() => setIsSettingsOpen(false)}
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "white",
-                  cursor: "pointer",
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
                 }}
               >
                 <X size={20} />
@@ -882,47 +843,43 @@ export default function ComplaintPage() {
             </div>
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "16px",
-                backgroundColor: "rgba(255,255,255,0.05)",
-                borderRadius: "16px",
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderRadius: '16px',
               }}
             >
               <div>
-                <div style={{ fontWeight: "600" }}>Auto-Stop Listening</div>
-                <div
-                  style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}
-                >
+                <div style={{ fontWeight: '600' }}>Auto-Stop Listening</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
                   Detects when you finish speaking
                 </div>
               </div>
               <button
                 onClick={() => setAutoStop(!autoStop)}
                 style={{
-                  width: "48px",
-                  height: "24px",
-                  borderRadius: "20px",
-                  border: "none",
-                  position: "relative",
-                  cursor: "pointer",
-                  backgroundColor: autoStop
-                    ? "#2563eb"
-                    : "rgba(255,255,255,0.1)",
-                  transition: "0.3s",
+                  width: '48px',
+                  height: '24px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  backgroundColor: autoStop ? '#2563eb' : 'rgba(255,255,255,0.1)',
+                  transition: '0.3s',
                 }}
               >
                 <div
                   style={{
-                    width: "18px",
-                    height: "18px",
-                    backgroundColor: "white",
-                    borderRadius: "50%",
-                    position: "absolute",
-                    top: "3px",
-                    left: autoStop ? "27px" : "3px",
-                    transition: "0.3s",
+                    width: '18px',
+                    height: '18px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    position: 'absolute',
+                    top: '3px',
+                    left: autoStop ? '27px' : '3px',
+                    transition: '0.3s',
                   }}
                 />
               </button>
@@ -930,48 +887,44 @@ export default function ComplaintPage() {
 
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "16px",
-                backgroundColor: "rgba(255,255,255,0.05)",
-                borderRadius: "16px",
-                marginTop: "12px",
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderRadius: '16px',
+                marginTop: '12px',
               }}
             >
               <div>
-                <div style={{ fontWeight: "600" }}>Auto-Handsfree Mode</div>
-                <div
-                  style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}
-                >
+                <div style={{ fontWeight: '600' }}>Auto-Handsfree Mode</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
                   Mic turns on after REVA finishes
                 </div>
               </div>
               <button
                 onClick={() => setAutoResumeMic(!autoResumeMic)}
                 style={{
-                  width: "48px",
-                  height: "24px",
-                  borderRadius: "20px",
-                  border: "none",
-                  position: "relative",
-                  cursor: "pointer",
-                  backgroundColor: autoResumeMic
-                    ? "#10b981"
-                    : "rgba(255,255,255,0.1)",
-                  transition: "0.3s",
+                  width: '48px',
+                  height: '24px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  backgroundColor: autoResumeMic ? '#10b981' : 'rgba(255,255,255,0.1)',
+                  transition: '0.3s',
                 }}
               >
                 <div
                   style={{
-                    width: "18px",
-                    height: "18px",
-                    backgroundColor: "white",
-                    borderRadius: "50%",
-                    position: "absolute",
-                    top: "3px",
-                    left: autoResumeMic ? "27px" : "3px",
-                    transition: "0.3s",
+                    width: '18px',
+                    height: '18px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    position: 'absolute',
+                    top: '3px',
+                    left: autoResumeMic ? '27px' : '3px',
+                    transition: '0.3s',
                   }}
                 />
               </button>
@@ -979,15 +932,15 @@ export default function ComplaintPage() {
             <button
               onClick={() => setIsSettingsOpen(false)}
               style={{
-                width: "100%",
-                marginTop: "24px",
-                padding: "14px",
-                backgroundColor: "#2563eb",
-                border: "none",
-                borderRadius: "12px",
-                color: "white",
-                fontWeight: "700",
-                cursor: "pointer",
+                width: '100%',
+                marginTop: '24px',
+                padding: '14px',
+                backgroundColor: '#2563eb',
+                border: 'none',
+                borderRadius: '12px',
+                color: 'white',
+                fontWeight: '700',
+                cursor: 'pointer',
               }}
             >
               Save & Close
@@ -999,62 +952,59 @@ export default function ComplaintPage() {
       {showStationPicker && (
         <div
           style={{
-            position: "fixed",
+            position: 'fixed',
             inset: 0,
             zIndex: 100,
-            backgroundColor: "rgba(0,0,0,0.8)",
-            backdropFilter: "blur(10px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
           }}
         >
           <div
             style={{
-              backgroundColor: "#111827",
-              borderRadius: "24px",
-              width: "100%",
-              maxWidth: "500px",
-              maxHeight: "80vh",
-              display: "flex",
-              flexDirection: "column",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
-              overflow: "hidden",
+              backgroundColor: '#111827',
+              borderRadius: '24px',
+              width: '100%',
+              maxWidth: '500px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+              overflow: 'hidden',
             }}
           >
             <div
               style={{
-                padding: "24px",
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+                padding: '24px',
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.25rem" }}>
-                  Select Police Station
-                </h3>
+                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Select Police Station</h3>
                 <p
                   style={{
-                    margin: "4px 0 0",
-                    fontSize: "0.8rem",
-                    color: "rgba(255,255,255,0.5)",
+                    margin: '4px 0 0',
+                    fontSize: '0.8rem',
+                    color: 'rgba(255,255,255,0.5)',
                   }}
                 >
-                  We couldn't detect your local station. Please choose one
-                  manually.
+                  We couldn't detect your local station. Please choose one manually.
                 </p>
               </div>
               <button
                 onClick={() => setShowStationPicker(false)}
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "white",
-                  cursor: "pointer",
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
                 }}
               >
                 <X size={24} />
@@ -1063,18 +1013,18 @@ export default function ComplaintPage() {
 
             <div
               style={{
-                padding: "16px",
-                backgroundColor: "rgba(255,255,255,0.02)",
+                padding: '16px',
+                backgroundColor: 'rgba(255,255,255,0.02)',
               }}
             >
-              <div style={{ position: "relative" }}>
+              <div style={{ position: 'relative' }}>
                 <Search
                   style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "rgba(255,255,255,0.4)",
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'rgba(255,255,255,0.4)',
                   }}
                   size={18}
                 />
@@ -1084,60 +1034,56 @@ export default function ComplaintPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
-                    width: "100%",
-                    padding: "12px 12px 12px 40px",
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "12px",
-                    color: "white",
-                    outline: "none",
+                    width: '100%',
+                    padding: '12px 12px 12px 40px',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                    color: 'white',
+                    outline: 'none',
                   }}
                 />
               </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
               {availableStations
                 .filter(
                   (s) =>
-                    s.stationName
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase()) ||
-                    s.district
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase()),
+                    s.stationName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    s.district.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((station) => (
                   <button
                     key={station.id}
                     onClick={() => handleManualStationSelect(station)}
                     style={{
-                      width: "100%",
-                      padding: "16px",
-                      marginBottom: "12px",
+                      width: '100%',
+                      padding: '16px',
+                      marginBottom: '12px',
                       backgroundColor:
                         activeStation?.id === station.id
-                          ? "rgba(37, 99, 235, 0.2)"
-                          : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${activeStation?.id === station.id ? "#3b82f6" : "rgba(255,255,255,0.1)"}`,
-                      borderRadius: "16px",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      color: "white",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      transition: "all 0.2s",
+                          ? 'rgba(37, 99, 235, 0.2)'
+                          : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${activeStation?.id === station.id ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`,
+                      borderRadius: '16px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      color: 'white',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.2s',
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: "600", fontSize: "1rem" }}>
+                      <div style={{ fontWeight: '600', fontSize: '1rem' }}>
                         {station.stationName}
                       </div>
                       <div
                         style={{
-                          fontSize: "0.8rem",
-                          color: "rgba(255,255,255,0.4)",
+                          fontSize: '0.8rem',
+                          color: 'rgba(255,255,255,0.4)',
                         }}
                       >
                         {station.district}, {station.state}
@@ -1149,9 +1095,9 @@ export default function ComplaintPage() {
               {availableStations.length === 0 && (
                 <div
                   style={{
-                    textAlign: "center",
-                    padding: "40px",
-                    color: "rgba(255,255,255,0.4)",
+                    textAlign: 'center',
+                    padding: '40px',
+                    color: 'rgba(255,255,255,0.4)',
                   }}
                 >
                   Loading stations...

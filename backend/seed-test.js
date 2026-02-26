@@ -4,12 +4,12 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('--- Starting Seed Script ---');
-  
+
   try {
     // 1. Seed Police Station
     const stationCount = await prisma.policeStation.count();
     let station;
-    
+
     if (stationCount === 0) {
       station = await prisma.policeStation.create({
         data: {
@@ -20,7 +20,7 @@ async function main() {
           longitude: 77.5946,
           radiusKm: 100,
           contactNumber: '080-12345678',
-        }
+        },
       });
       console.log('✅ Created HQ Police Station');
     } else {
@@ -39,8 +39,8 @@ async function main() {
           password: hashedPassword,
           role: 'STATION_ADMIN',
           stationId: station.id,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
       console.log('✅ Created Police Admin: raj@police.gov.in / password123');
     } else {

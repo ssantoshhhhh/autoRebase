@@ -5,13 +5,13 @@ const { logger } = require('../utils/logger');
 // ── Settings ───────────────────────────────────────────────────────────
 // Use https://eve.idfy.com for Sandbox testing
 // Use https://api.idfy.com for Production
-const IDFY_BASE       = process.env.IDFY_BASE_URL;
+const IDFY_BASE = process.env.IDFY_BASE_URL;
 const IDFY_ACCOUNT_ID = process.env.IDFY_ACCOUNT_ID;
-const IDFY_API_KEY    = process.env.IDFY_API_KEY;
+const IDFY_API_KEY = process.env.IDFY_API_KEY;
 
-const TWILIO_SID      = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_TOKEN    = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_FROM     = process.env.TWILIO_FROM_NUMBER;
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM = process.env.TWILIO_FROM_NUMBER;
 
 // Store manual OTPs (use Redis in prod)
 const manualOtpStore = new Map();
@@ -22,8 +22,8 @@ const idfy = axios.create({
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
-    'api-key':      IDFY_API_KEY,
-    'account-id':   IDFY_ACCOUNT_ID,
+    'api-key': IDFY_API_KEY,
+    'account-id': IDFY_ACCOUNT_ID,
   },
 });
 
@@ -39,7 +39,7 @@ const isTwilioConfigured = () => !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM);
  */
 async function sendAadhaarOtp(aadhaarNumber) {
   const last4 = aadhaarNumber.slice(-4);
-  
+
   if (!isIdfyConfigured()) {
     throw new Error('IDfy service is not configured. Please check environment variables.');
   }
@@ -48,23 +48,25 @@ async function sendAadhaarOtp(aadhaarNumber) {
     const { data } = await idfy.post('/v2/tasks/async/verify_with_source/ind_aadhaar_otp', {
       task_id: `REVA-AA-${Date.now()}`,
       group_id: `REVA-GRP-${Date.now()}`,
-      data: { id_number: aadhaarNumber }
+      data: { id_number: aadhaarNumber },
     });
 
     logger.info(`IDfy Aadhaar OTP initiated for …${last4}: taskId=${data.task_id}`);
-    
+
     return {
       provider: 'idfy',
       taskId: data.task_id,
-      message: 'OTP sent to your Aadhaar-linked mobile number'
+      message: 'OTP sent to your Aadhaar-linked mobile number',
     };
   } catch (err) {
     const status = err.response?.status;
     const errorBody = err.response?.data;
     logger.error(`IDfy Aadhaar OTP Failed [${status}]:`, errorBody || err.message);
-    
-    if (status === 401) throw new Error('IDfy Authentication failed. Ensure API Key and Account ID are correct.');
-    if (status === 403) throw new Error('IDfy access denied. Check whitelisting or product activation.');
+
+    if (status === 401)
+      throw new Error('IDfy Authentication failed. Ensure API Key and Account ID are correct.');
+    if (status === 403)
+      throw new Error('IDfy access denied. Check whitelisting or product activation.');
     throw new Error(errorBody?.message || 'Failed to trigger Aadhaar OTP.');
   }
 }
@@ -81,14 +83,14 @@ async function verifyAadhaarOtp(aadhaarNumber, otp, taskId, provider) {
 
   try {
     const { data } = await idfy.post('/v2/tasks/async/verify_with_source/ind_aadhaar', {
-      task_id:  `REVA-VRF-${Date.now()}`,
+      task_id: `REVA-VRF-${Date.now()}`,
       group_id: `REVA-GRP-${Date.now()}`,
-      data:     { id_number: aadhaarNumber, otp },
+      data: { id_number: aadhaarNumber, otp },
     });
 
     const src = data?.result?.source_output || data?.data || {};
     const verified = data?.status === 'completed' || src?.status === 'id_found';
-    
+
     // Handle async processing if IDfy hasn't finished yet
     if (!verified && data?.request_id) {
       return { asyncPending: true, requestId: data.request_id };
@@ -101,7 +103,8 @@ async function verifyAadhaarOtp(aadhaarNumber, otp, taskId, provider) {
     };
   } catch (err) {
     logger.error('IDfy Aadhaar Verify Failed:', err.response?.data || err.message);
-    if (err.response?.status === 400) throw new Error('Invalid Aadhaar OTP. Please check the code sent to your phone.');
+    if (err.response?.status === 400)
+      throw new Error('Invalid Aadhaar OTP. Please check the code sent to your phone.');
     throw new Error('Verification service error. Please try again.');
   }
 }
@@ -122,11 +125,11 @@ async function verifyPan(panNumber) {
     const { data } = await idfy.post('/v2/tasks/sync/verify_with_source/ind_pan', {
       task_id: `PAN-VRF-${Date.now()}`,
       group_id: `PAN-GRP-${Date.now()}`,
-      data: { id_number: panNumber }
+      data: { id_number: panNumber },
     });
 
     const result = data?.result?.source_output || {};
-    
+
     if (data.status === 'completed' && (result.status === 'id_found' || result.is_match)) {
       return {
         verified: true,
@@ -135,11 +138,13 @@ async function verifyPan(panNumber) {
         panNumber: result.id_number || panNumber,
       };
     }
-    
+
     throw new Error('PAN not found or invalid.');
   } catch (err) {
     logger.error('IDfy PAN Verify Failed:', err.response?.data || err.message);
-    throw new Error(err.response?.data?.message || 'PAN verification failed. Ensure the number is correct.');
+    throw new Error(
+      err.response?.data?.message || 'PAN verification failed. Ensure the number is correct.'
+    );
   }
 }
 
@@ -155,11 +160,11 @@ async function sendMobileOtp(mobileNumber) {
     const client = twilio(TWILIO_SID, TWILIO_TOKEN);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const formatted = mobileNumber.startsWith('+') ? mobileNumber : `+91${mobileNumber}`;
-    
+
     await client.messages.create({
       body: `Your REVA Verification Code: ${otp}. Valid for 5 minutes.`,
       from: TWILIO_FROM,
-      to: formatted
+      to: formatted,
     });
 
     manualOtpStore.set(mobileNumber, { otp, expires: Date.now() + 5 * 60 * 1000 });
@@ -195,14 +200,14 @@ async function pollTaskResult(requestId, maxAttempts = 12, intervalMs = 2500) {
         const src = task.result?.source_output || {};
         return {
           verified: src.status === 'id_found' || src.is_match === true,
-          name:     src.full_name || src.name || null,
+          name: src.full_name || src.name || null,
         };
       }
       if (task?.status === 'failed') throw new Error('Identity verification task failed.');
     } catch (e) {
       logger.debug('Polling attempt failed:', e.message);
     }
-    await new Promise(r => setTimeout(r, intervalMs));
+    await new Promise((r) => setTimeout(r, intervalMs));
   }
   throw new Error('Verification timed out. Please try again.');
 }

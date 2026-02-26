@@ -15,9 +15,9 @@ router.get('/me', authenticateUser, async (req, res, next) => {
             id: true,
             stationName: true,
             district: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
     res.json({ user });
   } catch (error) {
@@ -29,7 +29,7 @@ router.get('/me', authenticateUser, async (req, res, next) => {
 router.patch('/profile', authenticateUser, async (req, res, next) => {
   try {
     const { name, mobileNumber, latitude, longitude, language } = req.body;
-    
+
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
@@ -44,7 +44,12 @@ router.patch('/profile', authenticateUser, async (req, res, next) => {
       let minDistance = Infinity;
 
       for (const station of stations) {
-        const dist = haversineDistance(parseFloat(latitude), parseFloat(longitude), station.latitude, station.longitude);
+        const dist = haversineDistance(
+          parseFloat(latitude),
+          parseFloat(longitude),
+          station.latitude,
+          station.longitude
+        );
         if (dist <= station.radiusKm && dist < minDistance) {
           minDistance = dist;
           matchedStationId = station.id;
@@ -69,10 +74,12 @@ router.patch('/profile', authenticateUser, async (req, res, next) => {
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 module.exports = router;

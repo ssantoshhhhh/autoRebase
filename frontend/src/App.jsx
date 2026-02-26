@@ -1,22 +1,22 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Citizen Pages
-import LandingPage from "./pages/citizen/LandingPage";
-import LoginPage from "./pages/citizen/LoginPage";
-import ComplaintPage from "./pages/citizen/ComplaintPage";
-import TrackingPage from "./pages/citizen/TrackingPage";
-import MyComplaintsPage from "./pages/citizen/MyComplaintsPage";
-import ProfilePage from "./pages/citizen/ProfilePage";
+import LandingPage from './pages/citizen/LandingPage';
+import LoginPage from './pages/citizen/LoginPage';
+import ComplaintPage from './pages/citizen/ComplaintPage';
+import TrackingPage from './pages/citizen/TrackingPage';
+import MyComplaintsPage from './pages/citizen/MyComplaintsPage';
+import ProfilePage from './pages/citizen/ProfilePage';
 
 // Police Pages
-import PoliceLoginPage from "./pages/police/PoliceLoginPage";
-import PoliceDashboard from "./pages/police/PoliceDashboard";
-import ComplaintDetailPage from "./pages/police/ComplaintDetailPage";
-import OfficersPage from "./pages/police/OfficersPage";
-import AnalyticsPage from "./pages/police/AnalyticsPage";
-import StationManagement from "./pages/police/StationManagement";
+import PoliceLoginPage from './pages/police/PoliceLoginPage';
+import PoliceDashboard from './pages/police/PoliceDashboard';
+import ComplaintDetailPage from './pages/police/ComplaintDetailPage';
+import OfficersPage from './pages/police/OfficersPage';
+import AnalyticsPage from './pages/police/AnalyticsPage';
+import StationManagement from './pages/police/StationManagement';
 
 function CitizenRoute({ children }) {
   const { user, loading } = useAuth();
@@ -34,29 +34,29 @@ function LoadingScreen() {
   return (
     <div
       style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--clr-bg)",
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--clr-bg)',
       }}
     >
-      <div style={{ textAlign: "center" }}>
+      <div style={{ textAlign: 'center' }}>
         <div
           style={{
             width: 48,
             height: 48,
-            border: "3px solid var(--clr-border)",
-            borderTopColor: "var(--clr-primary)",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto 16px",
+            border: '3px solid var(--clr-border)',
+            borderTopColor: 'var(--clr-primary)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px',
           }}
         />
         <p
           style={{
-            color: "var(--clr-text-muted)",
-            fontFamily: "var(--font-sans)",
+            color: 'var(--clr-text-muted)',
+            fontFamily: 'var(--font-sans)',
           }}
         >
           Loading REVA AI...
@@ -158,10 +158,10 @@ export default function App() {
           toastOptions={{
             duration: 4000,
             style: {
-              background: "var(--clr-surface-2)",
-              color: "var(--clr-text)",
-              border: "1px solid var(--clr-border)",
-              fontFamily: "var(--font-sans)",
+              background: 'var(--clr-surface-2)',
+              color: 'var(--clr-text)',
+              border: '1px solid var(--clr-border)',
+              fontFamily: 'var(--font-sans)',
             },
           }}
         />

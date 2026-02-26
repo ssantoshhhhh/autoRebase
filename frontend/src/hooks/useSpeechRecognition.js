@@ -20,20 +20,23 @@ export const useSpeechRecognition = (language = 'en-US', autoStop = false) => {
 
   const stopListening = useCallback(() => {
     if (recognizerRef.current) {
-      recognizerRef.current.stopContinuousRecognitionAsync(() => {
-        if (recognizerRef.current) {
-          recognizerRef.current.close();
-          recognizerRef.current = null;
+      recognizerRef.current.stopContinuousRecognitionAsync(
+        () => {
+          if (recognizerRef.current) {
+            recognizerRef.current.close();
+            recognizerRef.current = null;
+          }
+          setIsListening(false);
+          setIsInitializing(false);
+          isStartingRef.current = false;
+        },
+        (err) => {
+          console.error(err);
+          setIsListening(false);
+          setIsInitializing(false);
+          isStartingRef.current = false;
         }
-        setIsListening(false);
-        setIsInitializing(false);
-        isStartingRef.current = false;
-      }, (err) => {
-        console.error(err);
-        setIsListening(false);
-        setIsInitializing(false);
-        isStartingRef.current = false;
-      });
+      );
     } else {
       setIsListening(false);
       setIsInitializing(false);
@@ -43,7 +46,7 @@ export const useSpeechRecognition = (language = 'en-US', autoStop = false) => {
 
   const startListening = useCallback(() => {
     if (isListening || isStartingRef.current) return;
-    
+
     isStartingRef.current = true;
     setIsInitializing(true);
     setIsListening(true); // Set listening immediately for UI responsiveness
@@ -66,16 +69,16 @@ export const useSpeechRecognition = (language = 'en-US', autoStop = false) => {
         if (e.result.reason === speechsdk.ResultReason.RecognizedSpeech) {
           const newText = e.result.text.trim();
           if (newText) {
-            setTranscript(prev => {
+            setTranscript((prev) => {
               // Basic check to avoid immediate duplicate segments
               if (prev.endsWith(newText)) return prev;
               return prev ? `${prev} ${newText}` : newText;
             });
           }
           setInterimTranscript('');
-          
+
           if (autoStop) {
-            console.log("Auto-stopping...");
+            console.log('Auto-stopping...');
             recognizer.stopContinuousRecognitionAsync(() => {
               recognizer.close();
               if (recognizerRef.current === recognizer) {
@@ -95,26 +98,28 @@ export const useSpeechRecognition = (language = 'en-US', autoStop = false) => {
       };
 
       recognizer.sessionStopped = (s, e) => {
-        console.log("Session stopped.");
+        console.log('Session stopped.');
         stopListening();
       };
 
-      recognizer.startContinuousRecognitionAsync(() => {
-        recognizerRef.current = recognizer;
-        setIsInitializing(false);
-        isStartingRef.current = false;
-      }, (err) => {
-        console.error("Start Error: " + err);
-        setIsListening(false);
-        setIsInitializing(false);
-        isStartingRef.current = false;
-        if (recognizer) {
-          recognizer.close();
+      recognizer.startContinuousRecognitionAsync(
+        () => {
+          recognizerRef.current = recognizer;
+          setIsInitializing(false);
+          isStartingRef.current = false;
+        },
+        (err) => {
+          console.error('Start Error: ' + err);
+          setIsListening(false);
+          setIsInitializing(false);
+          isStartingRef.current = false;
+          if (recognizer) {
+            recognizer.close();
+          }
         }
-      });
-
+      );
     } catch (error) {
-      console.error("Error starting recognition:", error);
+      console.error('Error starting recognition:', error);
       setIsListening(false);
       setIsInitializing(false);
       isStartingRef.current = false;

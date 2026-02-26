@@ -5,15 +5,14 @@ const { logger } = require('../utils/logger');
 // Citizen authentication middleware
 const authenticateUser = async (req, res, next) => {
   try {
-    const token = req.cookies.accessToken || 
-                  req.headers.authorization?.replace('Bearer ', '');
-    
+    const token = req.cookies.accessToken || req.headers.authorization?.replace('Bearer ', '');
+
     if (!token) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -44,15 +43,15 @@ const authenticateUser = async (req, res, next) => {
 // Police authentication middleware
 const authenticatePolice = async (req, res, next) => {
   try {
-    const token = req.cookies.policeAccessToken || 
-                  req.headers.authorization?.replace('Bearer ', '');
-    
+    const token =
+      req.cookies.policeAccessToken || req.headers.authorization?.replace('Bearer ', '');
+
     if (!token) {
       return res.status(401).json({ error: 'Police authentication required' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    
+
     if (decoded.type !== 'POLICE') {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -93,13 +92,13 @@ const requireRole = (...roles) => {
     if (!req.policeUser) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    
+
     if (!roles.includes(req.policeUser.role)) {
-      return res.status(403).json({ 
-        error: `Access denied. Required role: ${roles.join(' or ')}` 
+      return res.status(403).json({
+        error: `Access denied. Required role: ${roles.join(' or ')}`,
       });
     }
-    
+
     next();
   };
 };
@@ -109,7 +108,7 @@ const enforceStationScope = (req, res, next) => {
   if (!req.stationId) {
     return res.status(403).json({ error: 'Station context required' });
   }
-  
+
   // Inject station filter into all queries
   req.stationFilter = { stationId: req.stationId };
   next();
@@ -125,10 +124,10 @@ const superAdminScope = (req, res, next) => {
   next();
 };
 
-module.exports = { 
-  authenticateUser, 
-  authenticatePolice, 
-  requireRole, 
+module.exports = {
+  authenticateUser,
+  authenticatePolice,
+  requireRole,
   enforceStationScope,
   superAdminScope,
 };

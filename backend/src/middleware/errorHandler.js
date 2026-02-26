@@ -2,7 +2,7 @@ const { logger } = require('../utils/logger');
 
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
-  
+
   logger.error({
     message: err.message,
     stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined,

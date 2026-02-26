@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import api from "../../utils/api";
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../utils/api';
 
 const PRIORITY_STYLES = {
-  EMERGENCY: { bg: "rgba(255,59,48,0.15)", color: "#ff3b30" },
-  HIGH: { bg: "rgba(239,68,68,0.15)", color: "#f87171" },
-  MODERATE: { bg: "rgba(245,158,11,0.15)", color: "#fbbf24" },
-  INFORMATIONAL: { bg: "rgba(16,185,129,0.15)", color: "#34d399" },
+  EMERGENCY: { bg: 'rgba(255,59,48,0.15)', color: '#ff3b30' },
+  HIGH: { bg: 'rgba(239,68,68,0.15)', color: '#f87171' },
+  MODERATE: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24' },
+  INFORMATIONAL: { bg: 'rgba(16,185,129,0.15)', color: '#34d399' },
 };
 
 export default function MyComplaintsPage() {
@@ -35,23 +35,21 @@ export default function MyComplaintsPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--clr-bg)" }}>
+    <div style={{ minHeight: '100vh', background: 'var(--clr-bg)' }}>
       <div
         style={{
-          background: "rgba(8,12,20,0.9)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid var(--clr-border)",
-          padding: "0 24px",
-          height: "60px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          background: 'rgba(8,12,20,0.9)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid var(--clr-border)',
+          padding: '0 24px',
+          height: '60px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>
-          My Complaints
-        </div>
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>My Complaints</div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <Link to="/profile" className="btn btn-ghost btn-sm">
             Profile
           </Link>
@@ -64,34 +62,26 @@ export default function MyComplaintsPage() {
         </div>
       </div>
 
-      <div
-        style={{ maxWidth: "800px", margin: "32px auto", padding: "0 24px" }}
-      >
-        <h2 style={{ marginBottom: "24px" }}>Your Filed Complaints</h2>
+      <div style={{ maxWidth: '800px', margin: '32px auto', padding: '0 24px' }}>
+        <h2 style={{ marginBottom: '24px' }}>Your Filed Complaints</h2>
 
         {loading ? (
-          <div style={{ display: "grid", gap: "16px" }}>
+          <div style={{ display: 'grid', gap: '16px' }}>
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="skeleton"
-                style={{ height: "100px", borderRadius: "12px" }}
-              />
+              <div key={i} className="skeleton" style={{ height: '100px', borderRadius: '12px' }} />
             ))}
           </div>
         ) : complaints.length === 0 ? (
           <div
             style={{
-              textAlign: "center",
-              padding: "60px 24px",
-              color: "var(--clr-text-muted)",
+              textAlign: 'center',
+              padding: '60px 24px',
+              color: 'var(--clr-text-muted)',
             }}
           >
-            <div style={{ fontSize: "3rem", marginBottom: "12px" }}>📋</div>
-            <h3 style={{ marginBottom: "8px", fontSize: "1.1rem" }}>
-              No complaints yet
-            </h3>
-            <p style={{ fontSize: "0.85rem", marginBottom: "20px" }}>
+            <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📋</div>
+            <h3 style={{ marginBottom: '8px', fontSize: '1.1rem' }}>No complaints yet</h3>
+            <p style={{ fontSize: '0.85rem', marginBottom: '20px' }}>
               Start by filing your first complaint
             </p>
             <Link to="/complaint" className="btn btn-primary">
@@ -101,37 +91,35 @@ export default function MyComplaintsPage() {
         ) : (
           <div
             style={{
-              display: "grid",
-              gap: "12px",
-              animation: "fadeIn 0.4s ease",
+              display: 'grid',
+              gap: '12px',
+              animation: 'fadeIn 0.4s ease',
             }}
           >
             {complaints.map((c) => {
-              const pStyle =
-                PRIORITY_STYLES[c.priorityLevel] ||
-                PRIORITY_STYLES.INFORMATIONAL;
+              const pStyle = PRIORITY_STYLES[c.priorityLevel] || PRIORITY_STYLES.INFORMATIONAL;
               return (
                 <Link
                   key={c.trackingId}
                   to={`/track/${c.trackingId}`}
-                  style={{ textDecoration: "none" }}
+                  style={{ textDecoration: 'none' }}
                 >
-                  <div className="card" style={{ cursor: "pointer" }}>
+                  <div className="card" style={{ cursor: 'pointer' }}>
                     <div
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                        marginBottom: "8px",
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '8px',
                       }}
                     >
                       <div>
                         <div
                           style={{
-                            fontFamily: "monospace",
+                            fontFamily: 'monospace',
                             fontWeight: 700,
-                            color: "var(--clr-primary-light)",
-                            fontSize: "0.9rem",
+                            color: 'var(--clr-primary-light)',
+                            fontSize: '0.9rem',
                           }}
                         >
                           {c.trackingId}
@@ -139,26 +127,24 @@ export default function MyComplaintsPage() {
                         <div
                           style={{
                             fontWeight: 600,
-                            color: "var(--clr-text)",
-                            marginTop: "2px",
+                            color: 'var(--clr-text)',
+                            marginTop: '2px',
                           }}
                         >
-                          {c.incidentType || "General Complaint"}
+                          {c.incidentType || 'General Complaint'}
                         </div>
                       </div>
-                      <div
-                        style={{ display: "flex", gap: "6px", flexShrink: 0 }}
-                      >
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                         {c.isEmergency && (
                           <span
                             style={{
-                              fontSize: "0.7rem",
+                              fontSize: '0.7rem',
                               fontWeight: 700,
-                              padding: "2px 8px",
-                              borderRadius: "20px",
-                              background: "rgba(255,59,48,0.2)",
-                              color: "#ff3b30",
-                              border: "1px solid rgba(255,59,48,0.3)",
+                              padding: '2px 8px',
+                              borderRadius: '20px',
+                              background: 'rgba(255,59,48,0.2)',
+                              color: '#ff3b30',
+                              border: '1px solid rgba(255,59,48,0.3)',
                             }}
                           >
                             🚨 EMERGENCY
@@ -166,10 +152,10 @@ export default function MyComplaintsPage() {
                         )}
                         <span
                           style={{
-                            fontSize: "0.75rem",
+                            fontSize: '0.75rem',
                             fontWeight: 600,
-                            padding: "4px 10px",
-                            borderRadius: "20px",
+                            padding: '4px 10px',
+                            borderRadius: '20px',
                             background: pStyle.bg,
                             color: pStyle.color,
                           }}
@@ -180,31 +166,29 @@ export default function MyComplaintsPage() {
                     </div>
                     <p
                       style={{
-                        fontSize: "0.82rem",
-                        color: "var(--clr-text-muted)",
+                        fontSize: '0.82rem',
+                        color: 'var(--clr-text-muted)',
                         lineHeight: 1.5,
-                        marginBottom: "8px",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
+                        marginBottom: '8px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
                         WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
+                        WebkitBoxOrient: 'vertical',
                       }}
                     >
-                      {c.summaryText || "No summary available"}
+                      {c.summaryText || 'No summary available'}
                     </p>
                     <div
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.78rem",
-                        color: "var(--clr-text-faint)",
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '0.78rem',
+                        color: 'var(--clr-text-faint)',
                       }}
                     >
                       <span>📍 {c.station?.stationName}</span>
-                      <span>
-                        {new Date(c.createdAt).toLocaleDateString("en-IN")}
-                      </span>
+                      <span>{new Date(c.createdAt).toLocaleDateString('en-IN')}</span>
                     </div>
                   </div>
                 </Link>
@@ -216,10 +200,10 @@ export default function MyComplaintsPage() {
         {pagination && pagination.pages > 1 && (
           <div
             style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "8px",
-              marginTop: "24px",
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '24px',
             }}
           >
             <button
@@ -231,9 +215,9 @@ export default function MyComplaintsPage() {
             </button>
             <span
               style={{
-                padding: "6px 12px",
-                color: "var(--clr-text-muted)",
-                fontSize: "0.85rem",
+                padding: '6px 12px',
+                color: 'var(--clr-text-muted)',
+                fontSize: '0.85rem',
               }}
             >
               {page} / {pagination.pages}

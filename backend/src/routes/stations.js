@@ -27,37 +27,48 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/stations - GLOBAL_ADMIN creates station
-router.post('/', authenticatePolice, requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
-  try {
-    const { stationName, district, state, latitude, longitude, radiusKm, contactNumber } = req.body;
-    
-    const station = await prisma.policeStation.create({
-      data: { 
-        stationName, 
-        district, 
-        state, 
-        latitude: parseFloat(latitude), 
-        longitude: parseFloat(longitude), 
-        radiusKm: parseFloat(radiusKm) || 5, 
-        contactNumber 
-      },
-    });
+router.post(
+  '/',
+  authenticatePolice,
+  requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { stationName, district, state, latitude, longitude, radiusKm, contactNumber } =
+        req.body;
 
-    res.status(201).json({ message: 'Station created successfully', station });
-  } catch (error) {
-    next(error);
+      const station = await prisma.policeStation.create({
+        data: {
+          stationName,
+          district,
+          state,
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          radiusKm: parseFloat(radiusKm) || 5,
+          contactNumber,
+        },
+      });
+
+      res.status(201).json({ message: 'Station created successfully', station });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 // PATCH /api/stations/:id - Update station (Geofence, Status, Info)
 router.patch('/:id', authenticatePolice, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { stationName, district, state, latitude, longitude, radiusKm, contactNumber, status } = req.body;
+    const { stationName, district, state, latitude, longitude, radiusKm, contactNumber, status } =
+      req.body;
 
     // STATION_ADMIN can only update their own station
     if (req.policeUser.role === 'STATION_ADMIN' && req.policeUser.stationId !== id) {
-      throw new AppError('Unauthorized: Station Admin can only update their own station', 403, 'FORBIDDEN');
+      throw new AppError(
+        'Unauthorized: Station Admin can only update their own station',
+        403,
+        'FORBIDDEN'
+      );
     }
 
     // Only high roles can update
@@ -93,12 +104,17 @@ router.get('/nearest', async (req, res, next) => {
     if (!lat || !lng) throw new AppError('Coordinates required', 400, 'MISSING_COORDS');
 
     const stations = await prisma.policeStation.findMany({ where: { status: true } });
-    
+
     let nearest = null;
     let minDistance = Infinity;
 
     for (const station of stations) {
-      const dist = haversineDistance(parseFloat(lat), parseFloat(lng), station.latitude, station.longitude);
+      const dist = haversineDistance(
+        parseFloat(lat),
+        parseFloat(lng),
+        station.latitude,
+        station.longitude
+      );
       if (dist < minDistance) {
         minDistance = dist;
         nearest = { ...station, distanceKm: dist.toFixed(2) };
@@ -113,10 +129,12 @@ router.get('/nearest', async (req, res, next) => {
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 module.exports = router;

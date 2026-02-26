@@ -3,8 +3,8 @@ const { prisma } = require('../utils/prisma');
 // Lightweight audit middleware - records API access
 const auditMiddleware = async (req, res, next) => {
   const originalSend = res.json.bind(res);
-  
-  res.json = function(data) {
+
+  res.json = function (data) {
     // Log significant actions asynchronously (non-blocking)
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && res.statusCode < 400) {
       setImmediate(async () => {
@@ -12,7 +12,7 @@ const auditMiddleware = async (req, res, next) => {
           const userType = req.userType || 'CITIZEN';
           const userId = req.user?.id || null;
           const policeUserId = req.policeUser?.id || null;
-          
+
           if (userId || policeUserId) {
             await prisma.auditLog.create({
               data: {
@@ -35,10 +35,10 @@ const auditMiddleware = async (req, res, next) => {
         }
       });
     }
-    
+
     return originalSend(data);
   };
-  
+
   next();
 };
 

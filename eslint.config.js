@@ -1,18 +1,18 @@
 export default [
-    {
-        files: ["**/*.{js,jsx}"],
-        languageOptions: {
-            ecmaVersion: "latest",
-            sourceType: "module",
-            parserOptions: {
-                ecmaFeatures: {
-                    jsx: true,
-                },
-            },
+  {
+    files: ['**/*.{js,jsx}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
         },
-        rules: {
-            "no-unused-vars": "warn",
-            "no-console": "off",
-        },
+      },
     },
+    rules: {
+      'no-unused-vars': 'warn',
+      'no-console': 'off',
+    },
+  },
 ];

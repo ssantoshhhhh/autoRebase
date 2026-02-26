@@ -25,23 +25,27 @@ const userRoutes = require('./routes/users');
 const app = express();
 
 // Security middleware
-app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "https://*.azure.com", "https://*.microsoft.com"],
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'", 'https://*.azure.com', 'https://*.microsoft.com'],
+      },
     },
-  },
-}));
+  })
+);
 
 // CORS configuration
-app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'http://localhost:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Station-ID'],
-}));
+app.use(
+  cors({
+    origin: [process.env.FRONTEND_URL || 'http://localhost:3000'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Station-ID'],
+  })
+);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -69,9 +73,11 @@ app.use(cookieParser());
 app.use(compression());
 
 // Request logging
-app.use(morgan('combined', {
-  stream: { write: (message) => logger.info(message.trim()) },
-}));
+app.use(
+  morgan('combined', {
+    stream: { write: (message) => logger.info(message.trim()) },
+  })
+);
 
 // IP tracking middleware
 app.use((req, res, next) => {

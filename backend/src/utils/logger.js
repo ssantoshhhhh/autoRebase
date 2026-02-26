@@ -11,10 +11,7 @@ const logger = winston.createLogger({
   defaultMeta: { service: 'reva-ai-backend' },
   transports: [
     new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      ),
+      format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
     }),
   ],
 });

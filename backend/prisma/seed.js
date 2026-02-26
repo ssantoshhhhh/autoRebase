@@ -31,16 +31,37 @@ async function main() {
       passwordHash: hashedPwd,
       role: 'GLOBAL_ADMIN',
       isActive: true,
-      stationId: null
-    }
+      stationId: null,
+    },
   });
 
   // 3. Create Police Stations
   console.log('📍 Creating Police Stations...');
   const stations = [
-    { name: 'Koramangala Station', district: 'Bengaluru Urban', state: 'Karnataka', lat: 12.9352, lng: 77.6245, radius: 4 },
-    { name: 'Indiranagar Station', district: 'Bengaluru Urban', state: 'Karnataka', lat: 12.9719, lng: 77.6412, radius: 3 },
-    { name: 'HSR Layout Station', district: 'Bengaluru Urban', state: 'Karnataka', lat: 12.9121, lng: 77.6446, radius: 5 },
+    {
+      name: 'Koramangala Station',
+      district: 'Bengaluru Urban',
+      state: 'Karnataka',
+      lat: 12.9352,
+      lng: 77.6245,
+      radius: 4,
+    },
+    {
+      name: 'Indiranagar Station',
+      district: 'Bengaluru Urban',
+      state: 'Karnataka',
+      lat: 12.9719,
+      lng: 77.6412,
+      radius: 3,
+    },
+    {
+      name: 'HSR Layout Station',
+      district: 'Bengaluru Urban',
+      state: 'Karnataka',
+      lat: 12.9121,
+      lng: 77.6446,
+      radius: 5,
+    },
   ];
 
   const createdStations = [];
@@ -54,8 +75,8 @@ async function main() {
         latitude: s.lat,
         longitude: s.lng,
         radiusKm: s.radius,
-        contactNumber: '080-1234' + Math.floor(Math.random() * 9000 + 1000)
-      }
+        contactNumber: '080-1234' + Math.floor(Math.random() * 9000 + 1000),
+      },
     });
     createdStations.push(station);
   }
@@ -73,23 +94,23 @@ async function main() {
         email: `admin.${station.stationName.toLowerCase().replace(/ /g, '')}@police.gov.in`,
         passwordHash: hashedPwd,
         role: 'STATION_ADMIN',
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     // Create 3 officers per station
     for (let i = 1; i <= 3; i++) {
-        const officer = await prisma.policeUser.create({
-            data: {
-                id: uuidv4(),
-                stationId: station.id,
-                name: `Officer ${i} (${station.stationName})`,
-                email: `officer${i}.${station.stationName.toLowerCase().replace(/ /g, '')}@police.gov.in`,
-                passwordHash: hashedPwd,
-                role: 'OFFICER'
-            }
-        });
-        officers.push(officer);
+      const officer = await prisma.policeUser.create({
+        data: {
+          id: uuidv4(),
+          stationId: station.id,
+          name: `Officer ${i} (${station.stationName})`,
+          email: `officer${i}.${station.stationName.toLowerCase().replace(/ /g, '')}@police.gov.in`,
+          passwordHash: hashedPwd,
+          role: 'OFFICER',
+        },
+      });
+      officers.push(officer);
     }
   }
 
@@ -112,15 +133,21 @@ async function main() {
         internalRef: uuidv4(),
         isVerified: c.verified,
         isAnonymous: c.anonymous || false,
-        language: 'en'
-      }
+        language: 'en',
+      },
     });
     citizens.push(user);
   }
 
   // 6. Create Complaints
   console.log('📋 Creating Sample Complaints...');
-  const complaintTypes = ['Theft', 'Public Nuisance', 'Traffic Violation', 'Missing Person', 'Cyber Crime'];
+  const complaintTypes = [
+    'Theft',
+    'Public Nuisance',
+    'Traffic Violation',
+    'Missing Person',
+    'Cyber Crime',
+  ];
   const statuses = ['FILED', 'UNDER_REVIEW', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'];
 
   for (let i = 1; i <= 10; i++) {
@@ -128,11 +155,11 @@ async function main() {
     const user = citizens[Math.floor(Math.random() * citizens.length)];
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     const type = complaintTypes[Math.floor(Math.random() * complaintTypes.length)];
-    
+
     let assignedOfficerId = null;
     if (status === 'ASSIGNED' || status === 'IN_PROGRESS' || status === 'RESOLVED') {
-        const stationOfficers = officers.filter(o => o.stationId === station.id);
-        assignedOfficerId = stationOfficers[Math.floor(Math.random() * stationOfficers.length)].id;
+      const stationOfficers = officers.filter((o) => o.stationId === station.id);
+      assignedOfficerId = stationOfficers[Math.floor(Math.random() * stationOfficers.length)].id;
     }
 
     const complaint = await prisma.complaint.create({
@@ -149,29 +176,29 @@ async function main() {
         locationLat: station.latitude + (Math.random() - 0.5) * 0.01,
         locationLng: station.longitude + (Math.random() - 0.5) * 0.01,
         isEmergency: i % 5 === 0,
-        legalConfirmed: true
-      }
+        legalConfirmed: true,
+      },
     });
 
     // 7. Create Updates and Notifications for some complaints
     if (i % 2 === 0) {
-        await prisma.complaintUpdate.create({
-            data: {
-                complaintId: complaint.id,
-                updatedBy: 'SYSTEM',
-                updateType: 'STATUS_CHANGE',
-                content: `Complaint status moved to ${status}`
-            }
-        });
+      await prisma.complaintUpdate.create({
+        data: {
+          complaintId: complaint.id,
+          updatedBy: 'SYSTEM',
+          updateType: 'STATUS_CHANGE',
+          content: `Complaint status moved to ${status}`,
+        },
+      });
 
-        await prisma.notification.create({
-            data: {
-                userId: user.id,
-                complaintId: complaint.id,
-                type: 'STATUS_UPDATE',
-                message: `Your complaint state has been updated to ${status}.`
-            }
-        });
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          complaintId: complaint.id,
+          type: 'STATUS_UPDATE',
+          message: `Your complaint state has been updated to ${status}.`,
+        },
+      });
     }
   }
 

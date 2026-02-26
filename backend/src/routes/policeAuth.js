@@ -41,7 +41,7 @@ const setPoliceAuthCookies = (res, accessToken, refreshToken) => {
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       throw new AppError('Email and password required', 400, 'MISSING_FIELDS');
     }
@@ -70,14 +70,14 @@ router.post('/login', async (req, res, next) => {
     }
 
     const { accessToken, refreshToken } = generatePoliceTokens(
-      policeUser.id, 
-      policeUser.stationId, 
+      policeUser.id,
+      policeUser.stationId,
       policeUser.role
     );
 
     await prisma.policeUser.update({
       where: { id: policeUser.id },
-      data: { 
+      data: {
         lastLogin: new Date(),
         refreshToken: await bcrypt.hash(refreshToken, 8),
       },
@@ -108,7 +108,7 @@ router.post('/refresh', async (req, res, next) => {
     if (!refreshToken) throw new AppError('Refresh token required', 401, 'NO_TOKEN');
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    
+
     const policeUser = await prisma.policeUser.findUnique({
       where: { id: decoded.policeUserId },
     });
@@ -160,60 +160,69 @@ router.post('/logout', authenticatePolice, async (req, res, next) => {
 });
 
 // POST /api/police/auth/register (Global/Super/Station Admin)
-router.post('/register', authenticatePolice, requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN', 'STATION_ADMIN'), async (req, res, next) => {
-  try {
-    const { name, email, password, role, stationId } = req.body;
-    
-    // Determine the station ID based on the requester's role
-    let targetStationId = null;
-    if (req.policeUser.role === 'GLOBAL_ADMIN') {
-      targetStationId = stationId || null; // Can be null for other Global Admins
-    } else if (req.policeUser.role === 'SUPER_ADMIN') {
-      targetStationId = stationId || req.stationId;
-    } else {
-      targetStationId = req.stationId;
-    }
+router.post(
+  '/register',
+  authenticatePolice,
+  requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN', 'STATION_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { name, email, password, role, stationId } = req.body;
 
-    // Role restrictions
-    if (req.policeUser.role === 'STATION_ADMIN') {
-      if (!['OFFICER'].includes(role)) {
-        throw new AppError('Station Admins can only create officers', 403, 'FORBIDDEN');
+      // Determine the station ID based on the requester's role
+      let targetStationId = null;
+      if (req.policeUser.role === 'GLOBAL_ADMIN') {
+        targetStationId = stationId || null; // Can be null for other Global Admins
+      } else if (req.policeUser.role === 'SUPER_ADMIN') {
+        targetStationId = stationId || req.stationId;
+      } else {
+        targetStationId = req.stationId;
       }
-    } else if (req.policeUser.role === 'SUPER_ADMIN') {
-      if (!['OFFICER', 'STATION_ADMIN'].includes(role)) {
-        throw new AppError('Super Admins can only create Officers or Station Admins', 403, 'FORBIDDEN');
+
+      // Role restrictions
+      if (req.policeUser.role === 'STATION_ADMIN') {
+        if (!['OFFICER'].includes(role)) {
+          throw new AppError('Station Admins can only create officers', 403, 'FORBIDDEN');
+        }
+      } else if (req.policeUser.role === 'SUPER_ADMIN') {
+        if (!['OFFICER', 'STATION_ADMIN'].includes(role)) {
+          throw new AppError(
+            'Super Admins can only create Officers or Station Admins',
+            403,
+            'FORBIDDEN'
+          );
+        }
       }
+
+      const existing = await prisma.policeUser.findUnique({ where: { email } });
+      if (existing) throw new AppError('Email already registered', 409, 'EMAIL_EXISTS');
+
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      const newOfficer = await prisma.policeUser.create({
+        data: {
+          name,
+          email,
+          passwordHash,
+          role,
+          stationId: targetStationId,
+          isActive: true,
+        },
+      });
+
+      res.status(201).json({
+        message: 'Officer registered successfully',
+        officer: {
+          id: newOfficer.id,
+          name: newOfficer.name,
+          email: newOfficer.email,
+          role: newOfficer.role,
+          stationId: newOfficer.stationId,
+        },
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const existing = await prisma.policeUser.findUnique({ where: { email } });
-    if (existing) throw new AppError('Email already registered', 409, 'EMAIL_EXISTS');
-
-    const passwordHash = await bcrypt.hash(password, 12);
-    
-    const newOfficer = await prisma.policeUser.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        role,
-        stationId: targetStationId,
-        isActive: true,
-      },
-    });
-
-    res.status(201).json({
-      message: 'Officer registered successfully',
-      officer: {
-        id: newOfficer.id,
-        name: newOfficer.name,
-        email: newOfficer.email,
-        role: newOfficer.role,
-        stationId: newOfficer.stationId,
-      },
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 module.exports = router;
