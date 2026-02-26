@@ -39,7 +39,7 @@ export default function OfficersPage() {
         : '/api/police/officers';
       const res = await api.get(url, { headers });
       setOfficers(res.data.officers);
-    } catch (err) {
+    } catch (_err) {
       toast.error('Failed to load officers');
     } finally {
       setLoading(false);
@@ -65,8 +65,8 @@ export default function OfficersPage() {
       setShowAddForm(false);
       setForm({ name: '', email: '', password: '', role: 'OFFICER' });
       fetchOfficers();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to register');
+    } catch (_err) {
+      toast.error('Failed to register');
     } finally {
       setSubmitting(false);
     }

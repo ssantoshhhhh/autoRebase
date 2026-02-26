@@ -124,7 +124,7 @@ export const useSpeechRecognition = (language = 'en-US', autoStop = false) => {
       setIsInitializing(false);
       isStartingRef.current = false;
     }
-  }, [isListening, language, autoStop, stopListening]);
+  }, [isListening, language, stopListening]);
 
   const resetTranscript = useCallback(() => {
     setTranscript('');

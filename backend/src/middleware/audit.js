@@ -39,7 +39,7 @@ const auditMiddleware = async (req, res, next) => {
     return originalSend(data);
   };
 
-  next();
+  if (next) next();
 };
 
 module.exports = { auditMiddleware };

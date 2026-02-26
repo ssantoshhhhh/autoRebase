@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -91,6 +91,14 @@ function AppRoutes() {
           </CitizenRoute>
         }
       />
+      <Route
+        path="/profile"
+        element={
+          <CitizenRoute>
+            <ProfilePage />
+          </CitizenRoute>
+        }
+      />
 
       {/* Police */}
       <Route path="/police/login" element={<PoliceLoginPage />} />
@@ -137,14 +145,6 @@ function AppRoutes() {
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
-      <Route
-        path="/profile"
-        element={
-          <CitizenRoute>
-            <ProfilePage />
-          </CitizenRoute>
-        }
-      />
     </Routes>
   );
 }

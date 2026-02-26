@@ -38,45 +38,43 @@ export default function PoliceDashboard() {
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const res = await api.get('/api/police/dashboard', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('reva_police_token')}`,
+          },
+        });
+        setData(res.data);
+      } catch (_err) {
+        // Error handled by interceptor
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchDashboard();
   }, []);
 
   useEffect(() => {
+    const fetchComplaints = async () => {
+      try {
+        const params = new URLSearchParams({ page, limit: 15, ...filter });
+        if (activeTab === 'mine') params.set('assignedTo', 'me');
+        if (activeTab === 'emergency') params.set('priority', 'EMERGENCY');
+
+        const res = await api.get(`/api/police/complaints?${params}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('reva_police_token')}`,
+          },
+        });
+        setComplaints(res.data.complaints);
+        setPagination(res.data.pagination);
+      } catch (_err) {
+        // Error handled by interceptor
+      }
+    };
     fetchComplaints();
   }, [page, filter, activeTab]);
-
-  const fetchDashboard = async () => {
-    try {
-      const res = await api.get('/api/police/dashboard', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('reva_police_token')}`,
-        },
-      });
-      setData(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchComplaints = async () => {
-    try {
-      const params = new URLSearchParams({ page, limit: 15, ...filter });
-      if (activeTab === 'mine') params.set('assignedTo', 'me');
-      if (activeTab === 'emergency') params.set('priority', 'EMERGENCY');
-
-      const res = await api.get(`/api/police/complaints?${params}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('reva_police_token')}`,
-        },
-      });
-      setComplaints(res.data.complaints);
-      setPagination(res.data.pagination);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const stats = data?.stats;
 
@@ -289,7 +287,7 @@ export default function PoliceDashboard() {
                               latitude: e.target.value,
                             });
                             toast.success('Latitude updated');
-                          } catch (err) {
+                          } catch (_err) {
                             toast.error('Failed to update');
                           }
                         }}
@@ -316,7 +314,7 @@ export default function PoliceDashboard() {
                               longitude: e.target.value,
                             });
                             toast.success('Longitude updated');
-                          } catch (err) {
+                          } catch (_err) {
                             toast.error('Failed to update');
                           }
                         }}
@@ -345,7 +343,7 @@ export default function PoliceDashboard() {
                             radiusKm: radius,
                           });
                           toast.success(`Radius updated to ${radius}km`);
-                        } catch (err) {
+                        } catch (_err) {
                           toast.error('Failed to update');
                         }
                       }}

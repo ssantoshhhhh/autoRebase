@@ -268,8 +268,8 @@ router.post('/refresh', async (req, res, next) => {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) throw new AppError('Refresh token required', 401);
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    const { userId } = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || !user.refreshToken) throw new AppError('Invalid session', 401);
 

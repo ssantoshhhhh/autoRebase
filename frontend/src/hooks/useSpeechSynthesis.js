@@ -2,37 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
 
 export const useSpeechSynthesis = () => {
-  const [voices, setVoices] = useState([]);
   const [speaking, setSpeaking] = useState(false);
   const [supported, setSupported] = useState(true);
   const synthesizerRef = useRef(null);
 
   useEffect(() => {
-    const loadVoices = async () => {
-      try {
-        const speechConfig = speechsdk.SpeechConfig.fromSubscription(
-          import.meta.env.VITE_AZURE_SPEECH_KEY,
-          import.meta.env.VITE_AZURE_SPEECH_REGION
-        );
-        const synthesizer = new speechsdk.SpeechSynthesizer(speechConfig);
-        const result = await synthesizer.getVoicesAsync();
-
-        if (result.voices) {
-          const mappedVoices = result.voices.map((v) => ({
-            default: false,
-            lang: v.locale,
-            localService: false,
-            name: v.shortName,
-            voiceURI: v.name,
-          }));
-          setVoices(mappedVoices);
-        }
-        synthesizer.close();
-      } catch (e) {
-        console.error('Failed to load voices', e);
-      }
-    };
-    loadVoices();
+    // loadVoices removed since voices are not used in state
+    setSupported(true);
 
     return () => {
       if (synthesizerRef.current) {
@@ -109,6 +85,5 @@ export const useSpeechSynthesis = () => {
     cancel,
     speaking,
     supported,
-    voices,
   };
 };

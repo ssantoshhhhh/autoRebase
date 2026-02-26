@@ -11,7 +11,7 @@ router.get('/overview', superAdminScope, async (req, res, next) => {
     const filter = req.stationFilter;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalComplaints, byPriority, byStatus, byIncidentType, recentTrend, avgResolutionTime] =
+    const [totalComplaints, byPriority, byStatus, byIncidentType, recentTrend, _avgResolutionTime] =
       await Promise.all([
         prisma.complaint.count({ where: filter }),
         prisma.complaint.groupBy({

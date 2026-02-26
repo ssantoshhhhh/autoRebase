@@ -16,7 +16,7 @@ export default function AnalyticsPage() {
     api
       .get('/api/analytics/overview', { headers })
       .then((res) => setData(res.data))
-      .catch(console.error)
+      .catch(() => {}) // No error variable to underscore here
       .finally(() => setLoading(false));
   }, []);
 

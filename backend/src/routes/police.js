@@ -9,7 +9,6 @@ const {
 } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { sendSMS } = require('../services/smsService');
-const { logger } = require('../utils/logger');
 
 // All police routes require authentication
 router.use(authenticatePolice);
@@ -261,7 +260,7 @@ router.patch('/complaints/:id/status', enforceStationScope, async (req, res, nex
     const citizen = await prisma.user.findUnique({ where: { id: complaint.userId } });
     if (citizen && citizen.mobileNumber) {
       const smsBody = `REVA UPDATE: Your complaint ${complaint.trackingId} status changed to ${status}. Visit portal for details.`;
-      sendSMS(citizen.mobileNumber, smsBody).catch((e) => logger.error('Status SMS failed:', e));
+      sendSMS(citizen.mobileNumber, smsBody).catch((_e) => {});
     }
 
     res.json({ message: 'Status updated', complaint: updated });

@@ -136,7 +136,7 @@ export default function StationManagement() {
       toast.success('Station created!');
       setShowAddForm(false);
       fetchStations();
-    } catch (err) {
+    } catch (_err) {
       toast.error('Failed to create station');
     } finally {
       setSubmitting(false);

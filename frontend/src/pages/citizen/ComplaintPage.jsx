@@ -12,20 +12,17 @@ import {
   Settings,
   Globe,
   Square,
-  Send,
   Siren,
   CheckCircle2,
   Bot,
   User,
   Volume2,
-  X,
   Shield,
   Clock,
   MapPin,
   AlertCircle,
   Navigation,
   ChevronRight,
-  Search,
 } from 'lucide-react';
 
 export default function ComplaintPage() {
@@ -58,7 +55,6 @@ export default function ComplaintPage() {
   const [showStationPicker, setShowStationPicker] = useState(false);
   const [availableStations, setAvailableStations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
@@ -287,9 +283,9 @@ export default function ComplaintPage() {
       setIsLoading(false);
 
       const voicePrefix = getLocale(language);
-      const voice =
-        voices.find((v) => v.lang.startsWith(voicePrefix)) ||
-        voices.find((v) => v.lang.startsWith('en-IN'));
+      const voice = {
+        name: voicePrefix.startsWith('hi') ? 'hi-IN-SwaraNeural' : 'en-IN-NeerjaNeural',
+      };
 
       // Ensure mic is off while AI starts to speak
       stopSTT();
