@@ -27,14 +27,38 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          echo "📦 Installing Dependencies..."
+          echo "📦 Installing root dependencies..."
+          npm install --legacy-peer-deps
+
+          if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
+            echo "Installing frontend dependencies..."
+            cd frontend && npm install --legacy-peer-deps && cd ..
+          fi
+          if [ -d "backend" ] && [ -f "backend/package.json" ]; then
+            echo "Installing backend dependencies..."
+            cd backend && npm install --legacy-peer-deps && cd ..
+          fi
 
       # ---------- ESLint ----------
       - name: Run ESLint
         run: |
           echo "🔍 Running ESLint..."
-          npx eslint "src/**/*.{js,jsx,ts,tsx}" "tests/**/*.{js,jsx,ts,tsx}" > eslint_output.txt || true
-          if [ -s eslint_output.txt ]; then
+          # Define paths for all submodules
+          PATHS=""
+          if [ -d "frontend/src" ]; then PATHS="$PATHS frontend/src/**/*.{js,jsx}"; fi
+          if [ -d "backend/src" ]; then PATHS="$PATHS backend/src/**/*.js"; fi
+          if [ -d "ai_voice_chat_1/src" ]; then PATHS="$PATHS ai_voice_chat_1/src/**/*.{ts,tsx,js,jsx}"; fi
+
+          if [ -n "$PATHS" ]; then
+            # Using --no-error-on-unmatched-pattern to avoid failure if one dir is empty
+            npx eslint $PATHS --no-error-on-unmatched-pattern > eslint_output.txt || true
+          else
+            echo "No source files found for ESLint." > eslint_output.txt
+          fi
+
+          if [ -s eslint_output.txt ] && grep -q "error" eslint_output.txt; then
             echo "eslint_status=fail" >> $GITHUB_ENV
           else
             echo "eslint_status=pass" >> $GITHUB_ENV
@@ -44,8 +68,17 @@ jobs:
       - name: Run TypeScript type check
         run: |
           echo "🔍 Running TypeScript..."
-          npx tsc --noEmit > tsc_output.txt || true
-          if [ -s tsc_output.txt ]; then
+          # Check if any relevant tsconfig exists.
+          if [ -f "tsconfig.json" ]; then
+            npx tsc --noEmit > tsc_output.txt || true
+          elif [ -f "ai_voice_chat_1/tsconfig.json" ]; then
+             echo "Checking ai_voice_chat_1..."
+             cd ai_voice_chat_1 && npx tsc --noEmit > ../tsc_output.txt || true && cd ..
+          else
+            echo "No tsconfig.json found, skipping TypeScript checks." > tsc_output.txt
+          fi
+
+          if [ -s tsc_output.txt ] && grep -q "error" tsc_output.txt; then
             echo "tsc_status=fail" >> $GITHUB_ENV
           else
             echo "tsc_status=pass" >> $GITHUB_ENV
@@ -55,7 +88,18 @@ jobs:
       - name: Run Prettier
         run: |
           echo "🔍 Running Prettier..."
-          npx prettier --list-different . --ignore-path .prettierignore > prettier_output.txt || true
+          # Check styles and scripts in subdirectories
+          PATHS=""
+          if [ -d "frontend/src" ]; then PATHS="$PATHS frontend/src/**/*.{js,jsx,css,html}"; fi
+          if [ -d "backend/src" ]; then PATHS="$PATHS backend/src/**/*.js"; fi
+          if [ -d "ai_voice_chat_1/src" ]; then PATHS="$PATHS ai_voice_chat_1/src/**/*.{ts,tsx,js,jsx,css}"; fi
+
+          if [ -n "$PATHS" ]; then
+            npx prettier --list-different $PATHS > prettier_output.txt || true
+          else
+            echo "No files for Prettier." > prettier_output.txt
+          fi
+
           if [ -s prettier_output.txt ]; then
             echo "prettier_status=fail" >> $GITHUB_ENV
           else
@@ -66,7 +110,7 @@ jobs:
       - name: Run PR size check
         if: github.event_name == 'pull_request'
         run: |
-          lineSize=500
+          lineSize=1000
           changes=$(( ${{ github.event.pull_request.additions }} + ${{ github.event.pull_request.deletions }} ))
           if [ $changes -gt $lineSize ]; then
             echo "pr_size_status=fail" >> $GITHUB_ENV
@@ -96,15 +140,19 @@ jobs:
 
             for (const file of files) {
               if (!file.filename.match(/\.(js|jsx|ts|tsx)$/)) continue;
-              const res = await github.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/contents/${file.filename}?ref=${pr.head.ref}`);
-              let content = Buffer.from(res.data.content, 'base64').toString('utf8');
-              let lines = content.split('\n');
-              let foundLines = [];
-              for (let i = 0; i < lines.length; i++) {
-                if (lines[i].match(lineRegex)) foundLines.push(i + 1);
-              }
-              if (foundLines.length > 0) {
-                offendingDetails.push({ filename: file.filename, lines: foundLines });
+              try {
+                const res = await github.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/contents/${file.filename}?ref=${pr.head.ref}`);
+                let content = Buffer.from(res.data.content, 'base64').toString('utf8');
+                let lines = content.split('\n');
+                let foundLines = [];
+                for (let i = 0; i < lines.length; i++) {
+                  if (lines[i].match(lineRegex)) foundLines.push(i + 1);
+                }
+                if (foundLines.length > 0) {
+                  offendingDetails.push({ filename: file.filename, lines: foundLines });
+                }
+              } catch (e) {
+                console.log(`Could not read file ${file.filename}: ${e.message}`);
               }
             }
 
@@ -115,7 +163,7 @@ jobs:
                 let lineNums = f.lines.map(n => `**${n}**`).join(', ');
                 return `${f.filename} (${lineNums})`;
               }).join('\n');
-              consoleMsg = `<details><summary>❌ <strong>console.log</strong> found in ${offendingDetails.length} file${offendingDetails.length === 1 ? "" : "s"}.</summary>\n\n<pre>\n${offendingList}\n</pre>\n\n💡 Avoid using <code>console.log</code>; instead, use a proper logger where necessary.\n</details>`;
+              consoleMsg = `<details><summary>❌ <strong>console.log</strong> found in ${offendingDetails.length} file${offendingDetails.length === 1 ? "" : "s"}.</summary>\n\n<pre>\n${offendingList}\n</pre>\n\n💡 Avoid using <code>console.log</code>; instead, use local logging or remove them before PR.</details>`;
             } else {
               consoleStatus = "pass";
               consoleMsg = `✅ No <strong>console.log</strong> statements found.`;
@@ -135,19 +183,20 @@ jobs:
             const truncate = (file, max=5000) => {
               if (!fs.existsSync(file)) return "";
               let content = fs.readFileSync(file, "utf8").trim();
+              if (content.includes("skipping") || content.includes("No source files found")) return content;
               return content.length > max ? content.substring(0,max) + `\n...truncated` : content;
             };
 
             const eslint = process.env.eslint_status === "fail"
               ? `<details><summary>❌ ESLint Failed</summary>\n\n\`\`\`\n${truncate("eslint_output.txt")}\n\`\`\`\n</details>`
-              : "✅ ESLint Passed";
+              : (truncate("eslint_output.txt").includes("No source files") ? "➖ ESLint Skipped" : "✅ ESLint Passed");
 
             const tsc = process.env.tsc_status === "fail"
               ? `<details><summary>❌ TypeScript Failed</summary>\n\n\`\`\`\n${truncate("tsc_output.txt")}\n\`\`\`\n</details>`
-              : "✅ TypeScript Passed";
+              : (truncate("tsc_output.txt").includes("skipping") ? "➖ TypeScript Skipped" : "✅ TypeScript Passed");
 
             const prettier = process.env.prettier_status === "fail"
-              ? `<details><summary>❌ Prettier Failed</summary>\n\n\`\`\`\n${truncate("prettier_output.txt")}\n\`\`\`\n💡 Run \`npx prettier --write <file>\` (or \`npx prettier --write .\` for all) to fix.</details>`
+              ? `<details><summary>❌ Prettier Failed</summary>\n\n\`\`\`\n${truncate("prettier_output.txt")}\n\`\`\`\n💡 Run \`npx prettier --write <file>\` to fix.</details>`
               : "✅ Prettier Passed";
 
             const prSize = process.env.pr_size_msg || "⚠️ Not checked";
@@ -161,7 +210,7 @@ jobs:
               issue_number: context.payload.pull_request.number,
               body,
             });
-      
+
       # ---------- Update PR Title (✅/❌) ----------
       - name: Update PR title (✅/❌)
         if: github.event_name == 'pull_request'

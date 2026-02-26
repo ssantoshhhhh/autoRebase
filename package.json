@@ -1,0 +1,15 @@
+{
+  "name": "auto-rebase-root",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Root configuration for Code Quality checks",
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --check ."
+  },
+  "devDependencies": {
+    "eslint": "^9.10.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  }
+}

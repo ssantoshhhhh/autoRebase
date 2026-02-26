@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+.next
+.git
+*.pdf
+*.db
+backend/node_modules
+frontend/node_modules
+ai_voice_chat_1/node_modules
