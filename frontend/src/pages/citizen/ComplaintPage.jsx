@@ -47,6 +47,7 @@ export default function ComplaintPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState("");
   const [autoStop, setAutoStop] = useState(false);
+  const [autoResumeMic, setAutoResumeMic] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [language, setLanguage] = useState(
     user?.language === "hi" ? "hi" : "en",
@@ -64,6 +65,22 @@ export default function ComplaintPage() {
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
 
+  const getLocale = (lang) => {
+    const locales = {
+      en: "en-IN",
+      hi: "hi-IN",
+      te: "te-IN",
+      ta: "ta-IN",
+      kn: "kn-IN",
+      mr: "mr-IN",
+      bn: "bn-IN",
+      gu: "gu-IN",
+      ml: "ml-IN",
+      pa: "pa-IN",
+    };
+    return locales[lang] || "en-IN";
+  };
+
   // Initialize Voice Hooks
   const {
     isListening,
@@ -73,7 +90,7 @@ export default function ComplaintPage() {
     startListening: startSTT,
     stopListening: stopSTT,
     resetTranscript,
-  } = useSpeechRecognition(language === "hi" ? "hi-IN" : "en-IN", autoStop);
+  } = useSpeechRecognition(getLocale(language), autoStop);
 
   const {
     speak,
@@ -86,6 +103,32 @@ export default function ComplaintPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   useEffect(scrollToBottom, [messages, interimTranscript, isLoading]);
+
+  // Auto-enable mic after AI finishes speaking (Hands-free mode)
+  const prevSpeakingRef = useRef(false);
+  useEffect(() => {
+    if (
+      autoResumeMic &&
+      prevSpeakingRef.current === true &&
+      isSpeaking === false
+    ) {
+      const timer = setTimeout(() => {
+        if (!isListening && !isSpeaking && !isLoading && !isSubmitting) {
+          resetTranscript();
+          startSTT();
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+    prevSpeakingRef.current = isSpeaking;
+  }, [
+    isSpeaking,
+    isListening,
+    isLoading,
+    isSubmitting,
+    startSTT,
+    resetTranscript,
+  ]);
 
   const handleToggleListening = () => {
     if (isListening) {
@@ -266,17 +309,13 @@ export default function ComplaintPage() {
       setMessages((prev) => [...prev, aiMsg]);
       setIsLoading(false);
 
-      const langMap = {
-        en: "en-IN",
-        hi: "hi-IN",
-        te: "te-IN",
-        ta: "ta-IN",
-        kn: "kn-IN",
-      };
-      const voicePrefix = langMap[language] || "en-IN";
+      const voicePrefix = getLocale(language);
       const voice =
         voices.find((v) => v.lang.startsWith(voicePrefix)) ||
         voices.find((v) => v.lang.startsWith("en-IN"));
+
+      // Ensure mic is off while AI starts to speak
+      stopSTT();
       speak(aiText, voice);
 
       // Trigger automatic submission if signal detected
@@ -331,6 +370,21 @@ export default function ComplaintPage() {
           pointerEvents: "none",
         }}
       />
+
+      {/* Rotating AI Orb (Visible when speaking) */}
+      <div
+        className="ai-orb-container"
+        style={{
+          opacity: isSpeaking ? 1 : 0,
+          visibility: isSpeaking ? "visible" : "hidden",
+          transition: "opacity 0.8s ease-in-out, visibility 0.8s",
+        }}
+      >
+        <div className="ai-orb-ring ai-orb-ring-1"></div>
+        <div className="ai-orb-ring ai-orb-ring-2"></div>
+        <div className="ai-orb-ring ai-orb-ring-3"></div>
+        <div className="ai-orb-core"></div>
+      </div>
 
       {/* Header */}
       <header
@@ -671,18 +725,20 @@ export default function ComplaintPage() {
 
         <button
           onClick={handleToggleListening}
-          disabled={isInitializing}
+          disabled={isInitializing || isSpeaking}
           style={{
             width: "64px",
             height: "64px",
             borderRadius: "50%",
             border: "none",
-            cursor: isInitializing ? "not-allowed" : "pointer",
+            cursor: isInitializing || isSpeaking ? "not-allowed" : "pointer",
             backgroundColor: isInitializing
               ? "#4b5563"
-              : isListening
-                ? "#ef4444"
-                : "#2563eb",
+              : isSpeaking
+                ? "#94a3b8"
+                : isListening
+                  ? "#ef4444"
+                  : "#2563eb",
             color: "white",
             display: "flex",
             alignItems: "center",
@@ -691,11 +747,13 @@ export default function ComplaintPage() {
               "0 0 30px " +
               (isInitializing
                 ? "rgba(75, 85, 99, 0.5)"
-                : isListening
-                  ? "rgba(239, 68, 68, 0.5)"
-                  : "rgba(37, 99, 235, 0.5)"),
+                : isSpeaking
+                  ? "rgba(148, 163, 184, 0.3)"
+                  : isListening
+                    ? "rgba(239, 68, 68, 0.5)"
+                    : "rgba(37, 99, 235, 0.5)"),
             transition: "all 0.3s",
-            opacity: isInitializing ? 0.7 : 1,
+            opacity: isInitializing || isSpeaking ? 0.7 : 1,
           }}
         >
           {isInitializing ? (
@@ -709,6 +767,8 @@ export default function ComplaintPage() {
                 animation: "spin 1s linear infinite",
               }}
             />
+          ) : isSpeaking ? (
+            <Volume2 size={32} />
           ) : isListening ? (
             <MicOff size={32} />
           ) : (
@@ -742,10 +802,34 @@ export default function ComplaintPage() {
             }}
           >
             <option value="en" style={{ backgroundColor: "#1e293b" }}>
-              EN
+              EN (English)
             </option>
             <option value="hi" style={{ backgroundColor: "#1e293b" }}>
-              HI
+              HI (Hindi)
+            </option>
+            <option value="te" style={{ backgroundColor: "#1e293b" }}>
+              TE (Telugu)
+            </option>
+            <option value="ta" style={{ backgroundColor: "#1e293b" }}>
+              TA (Tamil)
+            </option>
+            <option value="kn" style={{ backgroundColor: "#1e293b" }}>
+              KN (Kannada)
+            </option>
+            <option value="mr" style={{ backgroundColor: "#1e293b" }}>
+              MR (Marathi)
+            </option>
+            <option value="bn" style={{ backgroundColor: "#1e293b" }}>
+              BN (Bengali)
+            </option>
+            <option value="gu" style={{ backgroundColor: "#1e293b" }}>
+              GU (Gujarati)
+            </option>
+            <option value="ml" style={{ backgroundColor: "#1e293b" }}>
+              ML (Malayalam)
+            </option>
+            <option value="pa" style={{ backgroundColor: "#1e293b" }}>
+              PA (Punjabi)
             </option>
           </select>
         </div>
@@ -838,6 +922,55 @@ export default function ComplaintPage() {
                     position: "absolute",
                     top: "3px",
                     left: autoStop ? "27px" : "3px",
+                    transition: "0.3s",
+                  }}
+                />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                borderRadius: "16px",
+                marginTop: "12px",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: "600" }}>Auto-Handsfree Mode</div>
+                <div
+                  style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}
+                >
+                  Mic turns on after REVA finishes
+                </div>
+              </div>
+              <button
+                onClick={() => setAutoResumeMic(!autoResumeMic)}
+                style={{
+                  width: "48px",
+                  height: "24px",
+                  borderRadius: "20px",
+                  border: "none",
+                  position: "relative",
+                  cursor: "pointer",
+                  backgroundColor: autoResumeMic
+                    ? "#10b981"
+                    : "rgba(255,255,255,0.1)",
+                  transition: "0.3s",
+                }}
+              >
+                <div
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "3px",
+                    left: autoResumeMic ? "27px" : "3px",
                     transition: "0.3s",
                   }}
                 />
