@@ -67,6 +67,7 @@ export default function ComplaintPage() {
   // Initialize Voice Hooks
   const {
     isListening,
+    isInitializing,
     transcript: sttTranscript,
     interimTranscript,
     startListening: startSTT,
@@ -388,7 +389,13 @@ export default function ComplaintPage() {
                 : "rgba(59, 130, 246, 0.1)",
             }}
           >
-            {isListening ? "LISTENING..." : isLoading ? "THINKING..." : "READY"}
+            {isInitializing
+              ? "CONNECTING..."
+              : isListening
+                ? "LISTENING..."
+                : isLoading
+                  ? "THINKING..."
+                  : "READY"}
           </div>
 
           <div
@@ -553,21 +560,30 @@ export default function ComplaintPage() {
               />
             </div>
           )}
-          {isListening && (sttTranscript || interimTranscript) && (
-            <div
-              style={{
-                alignSelf: "flex-end",
-                padding: "10px 16px",
-                backgroundColor: "rgba(79, 70, 229, 0.1)",
-                borderRadius: "15px",
-                border: "1px dashed rgba(79, 70, 229, 0.4)",
-                color: "#93c5fd",
-                fontSize: "0.9rem",
-              }}
-            >
-              {sttTranscript || interimTranscript}...
-            </div>
-          )}
+          {(isListening || sttTranscript) &&
+            (sttTranscript || interimTranscript) && (
+              <div
+                style={{
+                  alignSelf: "flex-end",
+                  padding: "10px 16px",
+                  backgroundColor: "rgba(79, 70, 229, 0.1)",
+                  borderRadius: "15px",
+                  border: "1px dashed rgba(79, 70, 229, 0.4)",
+                  color: "#93c5fd",
+                  fontSize: "0.9rem",
+                  maxWidth: "80%",
+                  wordBreak: "break-word",
+                }}
+              >
+                {sttTranscript}
+                {interimTranscript
+                  ? sttTranscript
+                    ? " " + interimTranscript
+                    : interimTranscript
+                  : ""}
+                ...
+              </div>
+            )}
           <div ref={messagesEndRef} />
         </div>
       </main>
@@ -655,26 +671,49 @@ export default function ComplaintPage() {
 
         <button
           onClick={handleToggleListening}
+          disabled={isInitializing}
           style={{
             width: "64px",
             height: "64px",
             borderRadius: "50%",
             border: "none",
-            cursor: "pointer",
-            backgroundColor: isListening ? "#ef4444" : "#2563eb",
+            cursor: isInitializing ? "not-allowed" : "pointer",
+            backgroundColor: isInitializing
+              ? "#4b5563"
+              : isListening
+                ? "#ef4444"
+                : "#2563eb",
             color: "white",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             boxShadow:
               "0 0 30px " +
-              (isListening
-                ? "rgba(239, 68, 68, 0.5)"
-                : "rgba(37, 99, 235, 0.5)"),
+              (isInitializing
+                ? "rgba(75, 85, 99, 0.5)"
+                : isListening
+                  ? "rgba(239, 68, 68, 0.5)"
+                  : "rgba(37, 99, 235, 0.5)"),
             transition: "all 0.3s",
+            opacity: isInitializing ? 0.7 : 1,
           }}
         >
-          {isListening ? <MicOff size={32} /> : <Mic size={32} />}
+          {isInitializing ? (
+            <div
+              style={{
+                width: "24px",
+                height: "24px",
+                border: "3px solid white",
+                borderTop: "3px solid transparent",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+          ) : isListening ? (
+            <MicOff size={32} />
+          ) : (
+            <Mic size={32} />
+          )}
         </button>
 
         <div
