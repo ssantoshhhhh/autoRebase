@@ -26,16 +26,61 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/stations - Super Admin creates station
-router.post('/', authenticatePolice, requireRole('SUPER_ADMIN'), async (req, res, next) => {
+// POST /api/stations - GLOBAL_ADMIN creates station
+router.post('/', authenticatePolice, requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
   try {
     const { stationName, district, state, latitude, longitude, radiusKm, contactNumber } = req.body;
     
     const station = await prisma.policeStation.create({
-      data: { stationName, district, state, latitude, longitude, radiusKm: radiusKm || 5, contactNumber },
+      data: { 
+        stationName, 
+        district, 
+        state, 
+        latitude: parseFloat(latitude), 
+        longitude: parseFloat(longitude), 
+        radiusKm: parseFloat(radiusKm) || 5, 
+        contactNumber 
+      },
     });
 
-    res.status(201).json({ message: 'Station created', station });
+    res.status(201).json({ message: 'Station created successfully', station });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/stations/:id - Update station (Geofence, Status, Info)
+router.patch('/:id', authenticatePolice, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { stationName, district, state, latitude, longitude, radiusKm, contactNumber, status } = req.body;
+
+    // STATION_ADMIN can only update their own station
+    if (req.policeUser.role === 'STATION_ADMIN' && req.policeUser.stationId !== id) {
+      throw new AppError('Unauthorized: Station Admin can only update their own station', 403, 'FORBIDDEN');
+    }
+
+    // Only high roles can update
+    if (!['GLOBAL_ADMIN', 'SUPER_ADMIN', 'STATION_ADMIN'].includes(req.policeUser.role)) {
+      throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
+    }
+
+    const updateData = {};
+    if (stationName) updateData.stationName = stationName;
+    if (district) updateData.district = district;
+    if (state) updateData.state = state;
+    if (latitude !== undefined) updateData.latitude = parseFloat(latitude);
+    if (longitude !== undefined) updateData.longitude = parseFloat(longitude);
+    if (radiusKm !== undefined) updateData.radiusKm = parseFloat(radiusKm);
+    if (contactNumber !== undefined) updateData.contactNumber = contactNumber;
+    if (status !== undefined) updateData.status = !!status;
+
+    const updated = await prisma.policeStation.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({ message: 'Station updated successfully', station: updated });
   } catch (error) {
     next(error);
   }

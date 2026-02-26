@@ -152,6 +152,9 @@ export default function PoliceDashboard() {
               { to: "/police/dashboard", icon: "📊", label: "Dashboard" },
               { to: "/police/analytics", icon: "📈", label: "Analytics" },
               { to: "/police/officers", icon: "👥", label: "Officers" },
+              ...(policeUser?.role === "GLOBAL_ADMIN"
+                ? [{ to: "/police/stations", icon: "🏢", label: "Stations" }]
+                : []),
             ].map((item) => (
               <Link
                 key={item.to}
@@ -246,33 +249,115 @@ export default function PoliceDashboard() {
                 <div
                   className="card"
                   style={{
-                    padding: "12px 16px",
+                    padding: "16px",
                     display: "flex",
-                    alignItems: "center",
+                    flexDirection: "column",
                     gap: "12px",
+                    minWidth: "280px",
                   }}
                 >
-                  <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>
-                    Geofence Radius (km)
-                  </div>
-                  <input
-                    type="number"
-                    className="input"
-                    style={{ width: "80px", padding: "4px 8px" }}
-                    defaultValue={policeUser?.station?.radiusKm || 5}
-                    onBlur={async (e) => {
-                      const radius = parseFloat(e.target.value);
-                      if (radius === policeUser?.station?.radiusKm) return;
-                      try {
-                        await api.patch("/api/police/station", {
-                          radiusKm: radius,
-                        });
-                        toast.success(`Radius updated to ${radius}km`);
-                      } catch (err) {
-                        toast.error("Failed to update radius");
-                      }
+                  <div
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      color: "var(--clr-primary-light)",
                     }}
-                  />
+                  >
+                    Geofence Settings
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "8px",
+                    }}
+                  >
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label
+                        style={{
+                          fontSize: "0.65rem",
+                          display: "block",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Latitude
+                      </label>
+                      <input
+                        type="number"
+                        className="input"
+                        style={{ padding: "4px 8px", fontSize: "0.8rem" }}
+                        defaultValue={policeUser?.station?.latitude}
+                        onBlur={async (e) => {
+                          try {
+                            await api.patch(
+                              `/api/stations/${policeUser.stationId}`,
+                              { latitude: e.target.value },
+                            );
+                            toast.success("Latitude updated");
+                          } catch (err) {
+                            toast.error("Failed to update");
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label
+                        style={{
+                          fontSize: "0.65rem",
+                          display: "block",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Longitude
+                      </label>
+                      <input
+                        type="number"
+                        className="input"
+                        style={{ padding: "4px 8px", fontSize: "0.8rem" }}
+                        defaultValue={policeUser?.station?.longitude}
+                        onBlur={async (e) => {
+                          try {
+                            await api.patch(
+                              `/api/stations/${policeUser.stationId}`,
+                              { longitude: e.target.value },
+                            );
+                            toast.success("Longitude updated");
+                          } catch (err) {
+                            toast.error("Failed to update");
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label
+                      style={{
+                        fontSize: "0.65rem",
+                        display: "block",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Radius (km)
+                    </label>
+                    <input
+                      type="number"
+                      className="input"
+                      style={{ padding: "4px 8px", fontSize: "0.8rem" }}
+                      defaultValue={policeUser?.station?.radiusKm || 5}
+                      onBlur={async (e) => {
+                        const radius = parseFloat(e.target.value);
+                        try {
+                          await api.patch(
+                            `/api/stations/${policeUser.stationId}`,
+                            { radiusKm: radius },
+                          );
+                          toast.success(`Radius updated to ${radius}km`);
+                        } catch (err) {
+                          toast.error("Failed to update");
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

@@ -159,18 +159,30 @@ router.post('/logout', authenticatePolice, async (req, res, next) => {
   }
 });
 
-// POST /api/police/auth/register (Super Admin only)
-router.post('/register', authenticatePolice, requireRole('SUPER_ADMIN', 'STATION_ADMIN'), async (req, res, next) => {
+// POST /api/police/auth/register (Global/Super/Station Admin)
+router.post('/register', authenticatePolice, requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN', 'STATION_ADMIN'), async (req, res, next) => {
   try {
     const { name, email, password, role, stationId } = req.body;
     
-    // STATION_ADMIN can only create officers for their own station
-    const targetStationId = req.policeUser.role === 'SUPER_ADMIN' 
-      ? stationId 
-      : req.stationId;
+    // Determine the station ID based on the requester's role
+    let targetStationId = null;
+    if (req.policeUser.role === 'GLOBAL_ADMIN') {
+      targetStationId = stationId || null; // Can be null for other Global Admins
+    } else if (req.policeUser.role === 'SUPER_ADMIN') {
+      targetStationId = stationId || req.stationId;
+    } else {
+      targetStationId = req.stationId;
+    }
 
-    if (!['OFFICER', 'STATION_ADMIN'].includes(role) && req.policeUser.role !== 'SUPER_ADMIN') {
-      throw new AppError('Insufficient permissions to assign this role', 403, 'FORBIDDEN');
+    // Role restrictions
+    if (req.policeUser.role === 'STATION_ADMIN') {
+      if (!['OFFICER'].includes(role)) {
+        throw new AppError('Station Admins can only create officers', 403, 'FORBIDDEN');
+      }
+    } else if (req.policeUser.role === 'SUPER_ADMIN') {
+      if (!['OFFICER', 'STATION_ADMIN'].includes(role)) {
+        throw new AppError('Super Admins can only create Officers or Station Admins', 403, 'FORBIDDEN');
+      }
     }
 
     const existing = await prisma.policeUser.findUnique({ where: { email } });
