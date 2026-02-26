@@ -78,7 +78,7 @@ router.post('/send-otp', async (req, res, next) => {
 
 router.post('/verify-otp', async (req, res, next) => {
   try {
-    const { aadhaar, otp, language = 'en' } = req.body;
+    const { aadhaar, otp, name: manualName, language = 'en' } = req.body;
     if (!aadhaar || !otp) throw new AppError('Aadhaar and OTP required', 400);
 
     const cleaned = aadhaar.replace(/\s|-/g, '');
@@ -93,7 +93,10 @@ router.post('/verify-otp', async (req, res, next) => {
     if (!result.verified) throw new AppError('Invalid OTP', 400);
 
     pendingAadhaarTasks.delete(cleaned);
-    const user = await upsertCitizenUser(maskAadhaar(cleaned), result.name, pending.language);
+    
+    // Prioritize KYC name, fallback to manual name
+    const finalName = result.name || manualName;
+    const user = await upsertCitizenUser(maskAadhaar(cleaned), finalName, pending.language);
 
     const { accessToken, refreshToken } = generateTokens(user.id);
     await updateRefreshToken(user.id, refreshToken);
@@ -130,6 +133,45 @@ router.post('/send-mobile-otp', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/pan/login', async (req, res, next) => {
+  try {
+    const { pan, mobile, otp, name, language = 'en' } = req.body;
+    if (!pan || !mobile || !otp) throw new AppError('PAN, Mobile and OTP required', 400);
+
+    const isOtpValid = await verifyMobileOtp(mobile, otp);
+    if (!isOtpValid) throw new AppError('Invalid OTP', 400);
+
+    // Treat mobile number as the link for PAN users if PAN field doesn't exist in DB
+    // We use the provided name from PAN verification
+    let user = await prisma.user.findFirst({ where: { mobileNumber: mobile } });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          id: uuidv4(),
+          internalRef: `pan_${pan}_${Date.now().toString().slice(-4)}`,
+          mobileNumber: mobile,
+          name: name || null,
+          isVerified: true,
+          language
+        }
+      });
+    } else {
+      // Update name if provided from PAN details
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { name: name || user.name, language }
+      });
+    }
+
+    const { accessToken, refreshToken } = generateTokens(user.id);
+    await updateRefreshToken(user.id, refreshToken);
+    setAuthCookies(res, accessToken, refreshToken);
+
+    res.json({ user, accessToken });
+  } catch (error) { next(error); }
+});
+
 router.post('/mobile/login', async (req, res, next) => {
   try {
     const { mobile, otp, name, language = 'en' } = req.body;
@@ -150,6 +192,12 @@ router.post('/mobile/login', async (req, res, next) => {
           isVerified: true,
           language
         }
+      });
+    } else if (name) {
+      // Update name if it's provided and user exists
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { name, language }
       });
     }
 

@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [otpCells, setOtpCells] = useState(["", "", "", "", "", ""]);
   const [verifiedDetails, setVerifiedDetails] = useState(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [name, setName] = useState(""); // User's name
 
   const navigate = useNavigate();
   const { loginCitizen, user, loading: authLoading } = useAuth();
@@ -69,6 +70,10 @@ export default function LoginPage() {
    */
   const sendAadhaarOtp = async () => {
     const digits = rawAadhaar();
+    if (!name.trim()) {
+      toast.error("Please enter your full name");
+      return;
+    }
     if (digits.length !== 12) {
       toast.error("Enter valid 12-digit Aadhaar");
       return;
@@ -98,6 +103,7 @@ export default function LoginPage() {
       const res = await api.post("/api/auth/verify-otp", {
         aadhaar: rawAadhaar(),
         otp: fullOtp,
+        name, // Send name if provided manually
         language,
       });
       loginCitizen(res.data.user, res.data.accessToken);
@@ -114,6 +120,7 @@ export default function LoginPage() {
    * PAN FLOW
    */
   const getPanDetails = async () => {
+    if (!name.trim()) return toast.error("Please enter your name");
     if (pan.length !== 10) return toast.error("Enter valid 10-character PAN");
     setLoading(true);
     try {
@@ -166,6 +173,7 @@ export default function LoginPage() {
   };
 
   const sendOnlyMobileOtp = async () => {
+    if (!name.trim()) return toast.error("Please enter your full name");
     if (mobile.length !== 10)
       return toast.error("Enter valid 10-digit mobile number");
     setLoading(true);
@@ -184,11 +192,13 @@ export default function LoginPage() {
   const loginWithMobile = async () => {
     const fullOtp = otpCells.join("");
     if (fullOtp.length !== 6) return toast.error("Enter 6-digit OTP");
+    if (!name.trim()) return toast.error("Please enter your name");
     setLoading(true);
     try {
       const res = await api.post("/api/auth/mobile/login", {
         mobile,
         otp: fullOtp,
+        name,
         language,
       });
       loginCitizen(res.data.user, res.data.accessToken);
@@ -361,6 +371,19 @@ export default function LoginPage() {
                 >
                   Mobile
                 </button>
+              </div>
+
+              {/* Name Field (Global for all login types) */}
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <label className="label">Full Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your full name"
+                  style={{ textTransform: "capitalize" }}
+                />
               </div>
 
               {loginType === "aadhaar" ? (
