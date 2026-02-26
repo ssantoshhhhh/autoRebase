@@ -287,11 +287,21 @@ router.post('/complaints/:id/notes', enforceStationScope, async (req, res, next)
 });
 
 // GET /api/police/officers
-router.get('/officers', requireRole('STATION_ADMIN', 'SUPER_ADMIN'), superAdminScope, async (req, res, next) => {
+router.get('/officers', requireRole('GLOBAL_ADMIN', 'SUPER_ADMIN', 'STATION_ADMIN'), async (req, res, next) => {
   try {
-    const where = req.policeUser.role === 'SUPER_ADMIN' 
-      ? {} 
-      : { stationId: req.stationId };
+    const { stationId } = req.query;
+    let where = {};
+
+    if (req.policeUser.role === 'GLOBAL_ADMIN') {
+      // Global Admin can see all or filter by station
+      where = stationId ? { stationId } : {};
+    } else if (req.policeUser.role === 'SUPER_ADMIN') {
+      // Super Admin can also see all or filter by station
+      where = stationId ? { stationId } : {};
+    } else {
+      // Station Admin and others are restricted to their own station
+      where = { stationId: req.stationId };
+    }
 
     const officers = await prisma.policeUser.findMany({
       where,
@@ -303,7 +313,7 @@ router.get('/officers', requireRole('STATION_ADMIN', 'SUPER_ADMIN'), superAdminS
         isActive: true,
         lastLogin: true,
         stationId: true,
-        station: { select: { stationName: true } },
+        station: { select: { id: true, stationName: true } },
         _count: { select: { assignedComplaints: true } },
       },
       orderBy: { name: 'asc' },

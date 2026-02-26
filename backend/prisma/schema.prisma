@@ -9,6 +9,7 @@ datasource db {
 }
 
 enum UserRole {
+  GLOBAL_ADMIN
   SUPER_ADMIN
   STATION_ADMIN
   OFFICER
@@ -98,7 +99,7 @@ model PoliceStation {
 
 model PoliceUser {
   id           String     @id @default(uuid())
-  stationId    String     @map("station_id")
+  stationId    String?    @map("station_id")
   name         String
   email        String     @unique
   passwordHash String     @map("password_hash")
@@ -108,7 +109,7 @@ model PoliceUser {
   refreshToken String?    @map("refresh_token")
   createdAt    DateTime   @default(now()) @map("created_at")
 
-  station         PoliceStation @relation(fields: [stationId], references: [id])
+  station         PoliceStation? @relation(fields: [stationId], references: [id])
   assignedComplaints Complaint[] @relation("AssignedOfficer")
   auditLogs       AuditLog[]
 

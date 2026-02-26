@@ -117,7 +117,7 @@ const enforceStationScope = (req, res, next) => {
 
 // Super admin bypass (can see all stations)
 const superAdminScope = (req, res, next) => {
-  if (req.policeUser?.role === 'SUPER_ADMIN') {
+  if (req.policeUser?.role === 'SUPER_ADMIN' || req.policeUser?.role === 'GLOBAL_ADMIN') {
     req.stationFilter = {};
   } else {
     req.stationFilter = { stationId: req.stationId };

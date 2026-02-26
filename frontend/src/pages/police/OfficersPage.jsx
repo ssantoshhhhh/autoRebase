@@ -22,16 +22,26 @@ export default function OfficersPage() {
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    if (!["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role)) {
+    if (
+      !["GLOBAL_ADMIN", "STATION_ADMIN", "SUPER_ADMIN"].includes(
+        policeUser?.role,
+      )
+    ) {
       navigate("/police/dashboard");
       return;
     }
     fetchOfficers();
   }, []);
 
+  const queryParams = new URLSearchParams(window.location.search);
+  const targetStationId = queryParams.get("stationId") || policeUser?.stationId;
+
   const fetchOfficers = async () => {
     try {
-      const res = await api.get("/api/police/officers", { headers });
+      const url = targetStationId
+        ? `/api/police/officers?stationId=${targetStationId}`
+        : "/api/police/officers";
+      const res = await api.get(url, { headers });
       setOfficers(res.data.officers);
     } catch (err) {
       toast.error("Failed to load officers");
@@ -51,7 +61,7 @@ export default function OfficersPage() {
         "/api/police/auth/register",
         {
           ...form,
-          stationId: policeUser.station.id,
+          stationId: targetStationId,
         },
         { headers },
       );
@@ -175,8 +185,14 @@ export default function OfficersPage() {
                   }
                 >
                   <option value="OFFICER">Officer</option>
-                  {policeUser?.role === "SUPER_ADMIN" && (
-                    <option value="STATION_ADMIN">Station Admin</option>
+                  {["GLOBAL_ADMIN", "SUPER_ADMIN", "STATION_ADMIN"].includes(
+                    policeUser?.role,
+                  ) && <option value="STATION_ADMIN">Station Admin</option>}
+                  {policeUser?.role === "GLOBAL_ADMIN" && (
+                    <>
+                      <option value="SUPER_ADMIN">Super Admin</option>
+                      <option value="GLOBAL_ADMIN">Global Admin</option>
+                    </>
                   )}
                 </select>
               </div>
