@@ -6,7 +6,9 @@ const LANGUAGE_MAP = {
   'kn': 'Kannada',
   'mr': 'Marathi',
   'bn': 'Bengali',
-  'gu': 'Gujarati'
+  'gu': 'Gujarati',
+  'ml': 'Malayalam',
+  'pa': 'Punjabi'
 };
 
 const FALLBACK_MESSAGES = {
@@ -15,6 +17,11 @@ const FALLBACK_MESSAGES = {
   'ta': (text) => `சிந்தனை முடக்கப்பட்டுள்ளது (API Error). நீங்கள் சொன்னது: "${text}"`,
   'te': (text) => `ఆలోచన నిలిపివేయబడింది (API Error). మీరు చెప్పింది: "${text}"`,
   'kn': (text) => `ಚಿಂತನೆ ನಿಷ್ಕ್ರಿಯಗೊಂಡಿದೆ (API Error). ನೀವು ಹೇಳಿದ್ದು: "${text}"`,
+  'mr': (text) => `विचार करणे अक्षम केले आहे (API Error). आपण म्हणालात: "${text}"`,
+  'bn': (text) => `চিন্তা করা অক্ষম করা হয়েছে (API Error). আপনি বলেছেন: "${text}"`,
+  'gu': (text) => `વિચારણા અક્ષમ છે (API Error). તમે કહ્યું: "${text}"`,
+  'ml': (text) => `ചിന്ത അപ്രാപ്തമാക്കി (API Error). നിങ്ങൾ പറഞ്ഞു: "${text}"`,
+  'pa': (text) => `ਸੋਚਣਾ ਅਸਮਰੱਥ ਹੈ (API Error). ਤੁਸੀਂ ਕਿਹਾ: "${text}"`,
 };
 
 export const getAIResponse = async (text, languageCode, context = {}) => {
