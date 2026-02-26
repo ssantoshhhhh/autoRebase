@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../utils/api";
 import toast from "react-hot-toast";
+import termsPdf from "../../assets/terms.pdf";
 
 const LANGUAGES = [
   { code: "en", native: "English" },
@@ -27,9 +28,18 @@ export default function LoginPage() {
   const [masked, setMasked] = useState("");
   const [otpCells, setOtpCells] = useState(["", "", "", "", "", ""]);
   const [verifiedDetails, setVerifiedDetails] = useState(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const navigate = useNavigate();
-  const { loginCitizen } = useAuth();
+  const { loginCitizen, user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/complaint", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
+
+  if (authLoading) return null;
 
   const formatAadhaar = (val) => {
     const digits = val.replace(/\D/g, "").slice(0, 12);
@@ -374,11 +384,58 @@ export default function LoginPage() {
                       maxLength={14}
                     />
                   </div>
+
+                  {/* T&C Checkbox */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "flex-start",
+                      marginBottom: "20px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="acceptedTermsAadhaar"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      style={{
+                        marginTop: "3px",
+                        width: "16px",
+                        height: "16px",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <label
+                      htmlFor="acceptedTermsAadhaar"
+                      style={{
+                        color: "var(--clr-text-muted)",
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      I agree to the{" "}
+                      <a
+                        href={termsPdf}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "var(--clr-primary-light)",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Terms & Conditions
+                      </a>
+                    </label>
+                  </div>
+
                   <button
                     className="btn btn-primary w-full"
                     style={{ height: "50px" }}
                     onClick={sendAadhaarOtp}
-                    disabled={loading || rawAadhaar().length !== 12}
+                    disabled={
+                      loading || rawAadhaar().length !== 12 || !acceptedTerms
+                    }
                   >
                     {loading
                       ? "Requesting Official OTP..."
@@ -418,11 +475,56 @@ export default function LoginPage() {
                       maxLength={10}
                     />
                   </div>
+
+                  {/* T&C Checkbox */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "flex-start",
+                      marginBottom: "20px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="acceptedTermsPan"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      style={{
+                        marginTop: "3px",
+                        width: "16px",
+                        height: "16px",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <label
+                      htmlFor="acceptedTermsPan"
+                      style={{
+                        color: "var(--clr-text-muted)",
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      I agree to the{" "}
+                      <a
+                        href={termsPdf}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "var(--clr-primary-light)",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Terms & Conditions
+                      </a>
+                    </label>
+                  </div>
+
                   <button
                     className="btn btn-primary w-full"
                     style={{ height: "50px" }}
                     onClick={getPanDetails}
-                    disabled={loading || pan.length !== 10}
+                    disabled={loading || pan.length !== 10 || !acceptedTerms}
                   >
                     {loading ? "Verifying Record..." : "Verify PAN →"}
                   </button>
@@ -459,11 +561,56 @@ export default function LoginPage() {
                       />
                     </div>
                   </div>
+
+                  {/* T&C Checkbox */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "flex-start",
+                      marginBottom: "20px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="acceptedTermsMobile"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      style={{
+                        marginTop: "3px",
+                        width: "16px",
+                        height: "16px",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <label
+                      htmlFor="acceptedTermsMobile"
+                      style={{
+                        color: "var(--clr-text-muted)",
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      I agree to the{" "}
+                      <a
+                        href={termsPdf}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "var(--clr-primary-light)",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Terms & Conditions
+                      </a>
+                    </label>
+                  </div>
+
                   <button
                     className="btn btn-primary w-full"
                     style={{ height: "50px" }}
                     onClick={sendOnlyMobileOtp}
-                    disabled={loading || mobile.length !== 10}
+                    disabled={loading || mobile.length !== 10 || !acceptedTerms}
                   >
                     {loading ? "Sending..." : "Get Login OTP →"}
                   </button>
@@ -501,6 +648,8 @@ export default function LoginPage() {
               <button
                 className="btn btn-ghost w-full"
                 onClick={continueAnonymous}
+                disabled={!acceptedTerms}
+                style={{ opacity: !acceptedTerms ? 0.5 : 1 }}
               >
                 File Anonymously
               </button>
