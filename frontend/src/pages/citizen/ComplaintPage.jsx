@@ -309,10 +309,13 @@ export default function ComplaintPage() {
     setIsLoading(true);
 
     try {
-      const history = messages.map((m) => ({
-        role: m.role === "ai" ? "assistant" : "user",
-        content: m.text,
-      }));
+      // Only include plain text messages in history — skip image/video/result bubbles
+      const history = messages
+        .filter((m) => !m.type && m.text)
+        .map((m) => ({
+          role: m.role === "ai" ? "assistant" : "user",
+          content: m.text,
+        }));
 
       const context = {
         userName: user?.name,
