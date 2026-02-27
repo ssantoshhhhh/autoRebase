@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -33,13 +33,6 @@ enum PriorityLevel {
   INFORMATIONAL
 }
 
-enum FileType {
-  IMAGE
-  VIDEO
-  AUDIO
-  DOCUMENT
-}
-
 enum NotificationType {
   STATUS_UPDATE
   ASSIGNMENT
@@ -52,12 +45,31 @@ enum AuditUserType {
   POLICE
 }
 
+// Broad category that drives both storage path and behaviour
+enum MediaCategory {
+  IMAGE // .jpg, .jpeg, .png, .webp, .gif → AI analysis eligible
+  VIDEO // .mp4, .mov, .avi             → AI analysis eligible (future)
+  AUDIO // .mp3, .wav, .ogg             → transcription eligible (future)
+  DOCUMENT // .pdf, .docx, .xlsx, etc.     → no AI analysis
+}
+
+// AI analysis lifecycle — only relevant when mediaCategory is IMAGE or VIDEO
+enum AnalysisStatus {
+  NOT_APPLICABLE // Document / Audio — never analysed
+  PENDING // In queue
+  PROCESSING // Actively calling AI
+  COMPLETED // Result stored in analysisJson
+  FAILED // Error stored in analysisError
+}
+
+// ─── Core Identity Models ─────────────────────────────────────────────────────
+
 model User {
   id             String   @id @default(uuid())
   name           String?
   mobileNumber   String?  @unique @map("mobile_number")
-  aadhaarMasked  String?  @unique @map("aadhaar_masked")  // Primary identity — IDfy verified
-  internalRef    String   @unique @map("internal_ref")    // synthetic key for anonymous/Aadhaar users
+  aadhaarMasked  String?  @unique @map("aadhaar_masked")
+  internalRef    String   @unique @map("internal_ref")
   isVerified     Boolean  @default(false) @map("is_verified")
   isAnonymous    Boolean  @default(false) @map("is_anonymous")
   language       String   @default("en")
@@ -70,10 +82,11 @@ model User {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  policeStation  PoliceStation? @relation(fields: [geofenceId], references: [id])
-  complaints     Complaint[]
-  notifications  Notification[]
-  auditLogs      AuditLog[]
+  policeStation PoliceStation? @relation(fields: [geofenceId], references: [id])
+  complaints    Complaint[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  evidence      Evidence[]     @relation("UploaderEvidence")
 
   @@map("users")
 }
@@ -90,31 +103,33 @@ model PoliceStation {
   status        Boolean  @default(true)
   createdAt     DateTime @default(now()) @map("created_at")
 
-  policeUsers   PoliceUser[]
-  complaints    Complaint[]
-  users         User[]
+  policeUsers PoliceUser[]
+  complaints  Complaint[]
+  users       User[]
 
   @@map("police_stations")
 }
 
 model PoliceUser {
-  id           String     @id @default(uuid())
-  stationId    String?    @map("station_id")
+  id           String    @id @default(uuid())
+  stationId    String?   @map("station_id")
   name         String
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  role         UserRole   @default(OFFICER)
-  isActive     Boolean    @default(true) @map("is_active")
-  lastLogin    DateTime?  @map("last_login")
-  refreshToken String?    @map("refresh_token")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(OFFICER)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLogin    DateTime? @map("last_login")
+  refreshToken String?   @map("refresh_token")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  station         PoliceStation? @relation(fields: [stationId], references: [id])
-  assignedComplaints Complaint[] @relation("AssignedOfficer")
-  auditLogs       AuditLog[]
+  station            PoliceStation? @relation(fields: [stationId], references: [id])
+  assignedComplaints Complaint[]    @relation("AssignedOfficer")
+  auditLogs          AuditLog[]
 
   @@map("police_users")
 }
+
+// ─── Complaint ────────────────────────────────────────────────────────────────
 
 model Complaint {
   id                String          @id @default(uuid())
@@ -140,12 +155,12 @@ model Complaint {
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
-  user             User          @relation(fields: [userId], references: [id])
-  station          PoliceStation @relation(fields: [stationId], references: [id])
-  assignedOfficer  PoliceUser?   @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
-  evidence         Evidence[]
-  notifications    Notification[]
-  updates          ComplaintUpdate[]
+  user            User              @relation(fields: [userId], references: [id])
+  station         PoliceStation     @relation(fields: [stationId], references: [id])
+  assignedOfficer PoliceUser?       @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+  evidence        Evidence[]        @relation("ComplaintEvidence")
+  notifications   Notification[]
+  updates         ComplaintUpdate[]
 
   @@index([stationId])
   @@index([priorityLevel])
@@ -162,40 +177,92 @@ model ComplaintUpdate {
   content     String
   createdAt   DateTime @default(now()) @map("created_at")
 
-  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  complaint Complaint @relation(fields: [complaintId], references: [id])
 
   @@map("complaint_updates")
 }
 
+// ─── Evidence (Unified) ───────────────────────────────────────────────────────
+// One Complaint → many Evidence records.
+// One User (citizen) → many Evidence records.
+// mediaCategory distinguishes images from PDFs from audio.
+// AI analysis fields are populated ONLY for IMAGE / VIDEO categories.
+
 model Evidence {
-  id            String    @id @default(uuid())
-  complaintId   String    @map("complaint_id")
-  fileUrl       String    @map("file_url")
-  fileType      FileType  @map("file_type")
-  hashChecksum  String?   @map("hash_checksum")
-  encryptedKey  String?   @map("encrypted_key")
-  uploadedBy    String    @map("uploaded_by")
-  uploadedAt    DateTime  @default(now()) @map("uploaded_at")
+  id          String @id @default(uuid())
+  complaintId String @map("complaint_id")
+  uploaderId  String @map("uploader_id") // always the citizen who uploaded
 
-  complaint     Complaint @relation(fields: [complaintId], references: [id])
+  // ── File metadata ──────────────────────────────────────────────────────────
+  fileName      String        @map("file_name") // original filename, e.g. "scene.jpg"
+  mimeType      String        @map("mime_type") // e.g. "image/jpeg", "application/pdf"
+  fileSizeBytes Int           @map("file_size_bytes") // raw byte count
+  mediaCategory MediaCategory @map("media_category") // IMAGE / VIDEO / AUDIO / DOCUMENT
 
+  // ── S3 Storage ─────────────────────────────────────────────────────────────
+  // Populated once the file is successfully uploaded to the bucket
+  s3Bucket String? @map("s3_bucket") // e.g. "reva-evidence-prod"
+  s3Key    String? @map("s3_key") // e.g. "complaints/abc123/img_001.jpg"
+  s3Region String? @map("s3_region") // e.g. "ap-south-1"
+  cdnUrl   String? @map("cdn_url") // CloudFront / CDN public URL if applicable
+
+  // ── Security & Integrity ───────────────────────────────────────────────────
+  hashChecksum String?   @map("hash_checksum") // SHA-256 of the raw file (tamper-proof)
+  encryptedKey String?   @map("encrypted_key") // KMS-wrapped DEK for server-side encryption
+  isDeleted    Boolean   @default(false) @map("is_deleted") // soft-delete
+  deletedAt    DateTime? @map("deleted_at")
+
+  // ── AI Analysis (IMAGE / VIDEO only — null for DOCUMENT / AUDIO) ──────────
+  analysisStatus    AnalysisStatus @default(PENDING) @map("analysis_status")
+  analysisStartedAt DateTime?      @map("analysis_started_at")
+  analysisEndedAt   DateTime?      @map("analysis_ended_at")
+  processingTimeMs  Int?           @map("processing_time_ms")
+
+  isAiGenerated     Boolean? @map("is_ai_generated") // true = AI-generated image detected
+  aiConfidence      Float?   @map("ai_confidence") // 0.0 – 1.0 detection confidence
+  aiDetectionReason String?  @map("ai_detection_reason")
+  riskLevel         String?  @map("risk_level") // Low / Medium / High / Critical
+  riskReason        String?  @map("risk_reason")
+  overview          String? // one-line scene summary
+
+  // Full structured forensic payload (objects[], persons[], analysis{})
+  analysisJson  Json?   @map("analysis_json")
+  analysisError String? @map("analysis_error") // error message when status=FAILED
+
+  // ── Timestamps ─────────────────────────────────────────────────────────────
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // ── Relations ──────────────────────────────────────────────────────────────
+  complaint Complaint @relation("ComplaintEvidence", fields: [complaintId], references: [id])
+  uploader  User      @relation("UploaderEvidence", fields: [uploaderId], references: [id])
+
+  // ── Indexes ────────────────────────────────────────────────────────────────
+  @@index([complaintId]) // fetch all evidence for a complaint
+  @@index([uploaderId]) // fetch all uploads by a user
+  @@index([mediaCategory]) // filter images vs documents
+  @@index([analysisStatus]) // find pending / failed jobs
+  @@index([riskLevel]) // surface high-risk evidence fast
+  @@index([isDeleted])
   @@map("evidence")
 }
 
-model AuditLog {
-  id            String        @id @default(uuid())
-  userType      AuditUserType @map("user_type")
-  userId        String?       @map("user_id")
-  policeUserId  String?       @map("police_user_id")
-  action        String
-  resourceType  String?       @map("resource_type")
-  resourceId    String?       @map("resource_id")
-  ipAddress     String?       @map("ip_address")
-  metadata      Json?
-  timestamp     DateTime      @default(now())
+// ─── Supporting Models ────────────────────────────────────────────────────────
 
-  user          User?       @relation(fields: [userId], references: [id])
-  policeUser    PoliceUser? @relation(fields: [policeUserId], references: [id])
+model AuditLog {
+  id           String        @id @default(uuid())
+  userType     AuditUserType @map("user_type")
+  userId       String?       @map("user_id")
+  policeUserId String?       @map("police_user_id")
+  action       String
+  resourceType String?       @map("resource_type")
+  resourceId   String?       @map("resource_id")
+  ipAddress    String?       @map("ip_address")
+  metadata     Json?
+  timestamp    DateTime      @default(now())
+
+  user       User?       @relation(fields: [userId], references: [id])
+  policeUser PoliceUser? @relation(fields: [policeUserId], references: [id])
 
   @@map("audit_logs")
 }
@@ -209,9 +276,8 @@ model Notification {
   isRead      Boolean          @default(false) @map("is_read")
   createdAt   DateTime         @default(now()) @map("created_at")
 
-  user        User      @relation(fields: [userId], references: [id])
-  complaint   Complaint? @relation(fields: [complaintId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  complaint Complaint? @relation(fields: [complaintId], references: [id])
 
   @@map("notifications")
 }
-

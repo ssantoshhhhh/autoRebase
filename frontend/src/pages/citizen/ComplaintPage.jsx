@@ -26,6 +26,10 @@ import {
   Navigation,
   ChevronRight,
   Search,
+  ImageIcon,
+  Loader2,
+  AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function ComplaintPage() {
@@ -61,9 +65,11 @@ export default function ComplaintPage() {
   const [availableStations, setAvailableStations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isImageUploading, setIsImageUploading] = useState(false);
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
+  const imageFileRef = useRef(null);
 
   const getLocale = (lang) => {
     const locales = {
@@ -330,6 +336,64 @@ export default function ComplaintPage() {
     }
   };
 
+  // ── Image Upload & Analysis ─────────────────────────────────────────────────
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    imageFileRef.current.value = "";
+
+    const previewUrl = URL.createObjectURL(file);
+    const imgId = Date.now().toString();
+
+    // 1) Show image bubble immediately with loading=true
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: imgId,
+        role: "user",
+        type: "image",
+        imageUrl: previewUrl,
+        fileName: file.name,
+        loading: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+
+    setIsImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
+        { method: "POST", body: formData }
+      );
+      const result = await response.json();
+
+      // Log full result to SERVER console only
+      console.log("[Image Analysis Result]", JSON.stringify(result, null, 2));
+
+      // 2) Mark image as done loading
+      setMessages((prev) =>
+        prev.map((m) => m.id === imgId ? { ...m, loading: false } : m)
+      );
+
+      if (result.success && result.module1?.status === "completed") {
+        toast.success("Analysis complete — check server console for result.");
+      } else {
+        toast.error(result.module1?.error || "Analysis failed.");
+      }
+    } catch (err) {
+      console.error("[Image Analysis Error]", err);
+      setMessages((prev) =>
+        prev.map((m) => m.id === imgId ? { ...m, loading: false } : m)
+      );
+      toast.error("Failed to connect to analysis service.");
+    } finally {
+      setIsImageUploading(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -538,48 +602,167 @@ export default function ComplaintPage() {
                     width: "32px",
                     height: "32px",
                     borderRadius: "50%",
-                    backgroundColor:
-                      msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
+                    backgroundColor: msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  {msg.role === "user" ? (
-                    <User size={16} />
-                  ) : (
-                    <Bot size={16} color="#60a5fa" />
-                  )}
+                  {msg.role === "user" ? <User size={16} /> : <Bot size={16} color="#60a5fa" />}
                 </div>
-                <div
-                  style={{
-                    padding: "12px 18px",
-                    borderRadius:
-                      msg.role === "user"
-                        ? "20px 20px 4px 20px"
-                        : "20px 20px 20px 4px",
-                    backgroundColor:
-                      msg.role === "user"
-                        ? "#4f46e5"
-                        : "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    fontSize: "0.95rem",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {msg.text}
+
+                {/* --- Image Message Bubble (with loading overlay) --- */}
+                {msg.type === "image" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <img
+                        src={msg.imageUrl}
+                        alt={msg.fileName}
+                        style={{
+                          maxWidth: "240px",
+                          maxHeight: "240px",
+                          borderRadius: "16px 16px 4px 16px",
+                          border: "2px solid rgba(79, 70, 229, 0.5)",
+                          objectFit: "cover",
+                          display: "block",
+                          filter: msg.loading ? "brightness(0.4)" : "none",
+                          transition: "filter 0.3s",
+                        }}
+                      />
+                      {msg.loading && (
+                        <div style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                        }}>
+                          <Loader2 size={28} color="#a78bfa" style={{ animation: "spin 1s linear infinite" }} />
+                          <span style={{ fontSize: "10px", color: "#c4b5fd", fontWeight: 600, letterSpacing: "1px" }}>ANALYZING...</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "right" }}>
+                      {msg.fileName} · {msg.timestamp}
+                    </div>
+                  </div>
+                )}
+
+                {/* --- Analyzing Bubble --- REMOVED (result goes only to server console) */}
+                {/* --- Analysis Result/Error Bubbles --- REMOVED (result goes only to server console) */}
+
+                {/* --- Analysis Result Bubble --- */}
+                {msg.type === "imageResult" && msg.analysisData && (
                   <div
                     style={{
-                      fontSize: "10px",
-                      color: "rgba(255,255,255,0.3)",
-                      textAlign: "right",
-                      marginTop: "4px",
+                      padding: "14px 18px",
+                      borderRadius: "20px 20px 20px 4px",
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      fontSize: "0.85rem",
+                      maxWidth: "340px",
                     }}
                   >
-                    {msg.timestamp}
+                    {/* Risk Badge */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                      <div
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: "20px",
+                          fontSize: "10px",
+                          fontWeight: "700",
+                          letterSpacing: "1px",
+                          backgroundColor:
+                            msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Critical" ? "rgba(239,68,68,0.2)" :
+                              msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "High" ? "rgba(245,158,11,0.2)" :
+                                msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Medium" ? "rgba(234,179,8,0.15)" :
+                                  "rgba(16,185,129,0.15)",
+                          color:
+                            msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Critical" ? "#ef4444" :
+                              msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "High" ? "#f59e0b" :
+                                msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Medium" ? "#eab308" :
+                                  "#10b981",
+                          border: "1px solid currentColor",
+                        }}
+                      >
+                        {msg.analysisData.isAiGenerated
+                          ? "🤖 AI GENERATED"
+                          : `⚠ ${msg.analysisData.forensicAnalysis?.analysis?.riskLevel?.toUpperCase() || "UNKNOWN"} RISK`
+                        }
+                      </div>
+                      <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}>Forensic Analysis</div>
+                    </div>
+
+                    {/* Overview */}
+                    {msg.analysisData.forensicAnalysis?.overview && (
+                      <p style={{ color: "rgba(255,255,255,0.8)", lineHeight: "1.5", margin: "0 0 8px" }}>
+                        {msg.analysisData.forensicAnalysis.overview}
+                      </p>
+                    )}
+
+                    {/* AI Detection reason */}
+                    {msg.analysisData.isAiGenerated && (
+                      <p style={{ color: "#f87171", fontSize: "0.8rem", margin: 0 }}>
+                        {msg.analysisData.reason}
+                      </p>
+                    )}
+
+                    {/* Risk reason */}
+                    {!msg.analysisData.isAiGenerated && msg.analysisData.forensicAnalysis?.analysis?.riskReason && (
+                      <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", margin: "4px 0 0", borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "8px" }}>
+                        {msg.analysisData.forensicAnalysis.analysis.riskReason}
+                      </p>
+                    )}
+
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", marginTop: "8px" }}>
+                      {msg.timestamp} · {msg.analysisData.processingTimeMs}ms
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* --- Analysis Error Bubble --- */}
+                {msg.type === "imageError" && (
+                  <div
+                    style={{
+                      padding: "12px 18px",
+                      borderRadius: "20px 20px 20px 4px",
+                      backgroundColor: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.25)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontSize: "0.85rem",
+                      color: "#fca5a5",
+                      maxWidth: "300px",
+                    }}
+                  >
+                    <AlertTriangle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
+                    <span>Analysis failed: {msg.errorMsg || "Unknown error"}</span>
+                  </div>
+                )}
+
+                {/* --- Normal Text Bubble --- */}
+                {!msg.type && (
+                  <div
+                    style={{
+                      padding: "12px 18px",
+                      borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                      backgroundColor: msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      fontSize: "0.95rem",
+                      lineHeight: "1.5",
+                    }}
+                  >
+                    {msg.text}
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "right", marginTop: "4px" }}>
+                      {msg.timestamp}
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           ))}
@@ -661,6 +844,15 @@ export default function ComplaintPage() {
           boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
         }}
       >
+        {/* Hidden image file input */}
+        <input
+          ref={imageFileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          style={{ display: "none" }}
+          onChange={handleImageUpload}
+        />
+
         <button
           onClick={() => setIsSettingsOpen(true)}
           style={{
@@ -672,6 +864,29 @@ export default function ComplaintPage() {
           }}
         >
           <Settings size={22} />
+        </button>
+
+        {/* Media / Image Button */}
+        <button
+          onClick={() => imageFileRef.current?.click()}
+          disabled={isImageUploading}
+          title="Upload image for forensic analysis"
+          style={{
+            background: isImageUploading ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)",
+            border: "1px solid rgba(139,92,246,0.4)",
+            color: isImageUploading ? "rgba(255,255,255,0.3)" : "#a78bfa",
+            cursor: isImageUploading ? "not-allowed" : "pointer",
+            padding: "8px",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.2s",
+          }}
+        >
+          {isImageUploading
+            ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+            : <ImageIcon size={20} />}
         </button>
 
         <button
@@ -725,20 +940,22 @@ export default function ComplaintPage() {
 
         <button
           onClick={handleToggleListening}
-          disabled={isInitializing || isSpeaking}
+          disabled={isInitializing || isSpeaking || isImageUploading}
           style={{
             width: "64px",
             height: "64px",
             borderRadius: "50%",
             border: "none",
-            cursor: isInitializing || isSpeaking ? "not-allowed" : "pointer",
-            backgroundColor: isInitializing
+            cursor: isInitializing || isSpeaking || isImageUploading ? "not-allowed" : "pointer",
+            backgroundColor: isImageUploading
               ? "#4b5563"
-              : isSpeaking
-                ? "#94a3b8"
-                : isListening
-                  ? "#ef4444"
-                  : "#2563eb",
+              : isInitializing
+                ? "#4b5563"
+                : isSpeaking
+                  ? "#94a3b8"
+                  : isListening
+                    ? "#ef4444"
+                    : "#2563eb",
             color: "white",
             display: "flex",
             alignItems: "center",
