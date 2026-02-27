@@ -122,6 +122,11 @@ async function runImageAnalysis(imageBuffer, mimeType) {
 
     // Early exit if AI generated
     if (detectionResult.isAiGenerated) {
+        logger.info('━━━━━━━━━━━━━━━━ IMAGE ANALYSIS REPORT ━━━━━━━━━━━━━━━━');
+        logger.info(`[imageAnalysisService] 🤖 AI GENERATED IMAGE detected`);
+        logger.info(`[imageAnalysisService] 🎯 Confidence : ${(detectionResult.confidence * 100).toFixed(1)}% AI`);
+        logger.info(`[imageAnalysisService] 📝 Reason     : ${detectionResult.reason}`);
+        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return {
             status: 'completed',
             isAiGenerated: true,
@@ -143,7 +148,37 @@ async function runImageAnalysis(imageBuffer, mimeType) {
     }
 
     const totalTime = Date.now() - startTime;
-    logger.info(`[imageAnalysisService] Analysis complete. Total time: ${totalTime}ms`);
+
+    // ─── Rich structured log ──────────────────────────────────────────────────
+    const f = forensicAnalysis || {};
+    const analysis = f.analysis || {};
+    const objects = Array.isArray(f.objects) ? f.objects : [];
+    const persons = Array.isArray(f.persons) ? f.persons : [];
+
+    logger.info('━━━━━━━━━━━━━━━━ IMAGE ANALYSIS REPORT ━━━━━━━━━━━━━━━━');
+    logger.info(`[imageAnalysisService] ✅ Real image | Confidence: ${(detectionResult.confidence * 100).toFixed(1)}% real`);
+    logger.info(`[imageAnalysisService] ⚠  Risk Level : ${analysis.riskLevel || 'Unknown'}`);
+    logger.info(`[imageAnalysisService] 📝 Overview   : ${f.overview || 'N/A'}`);
+    logger.info(`[imageAnalysisService] 🔍 Risk Reason: ${analysis.riskReason || 'N/A'}`);
+
+    if (objects.length > 0) {
+        logger.info(`[imageAnalysisService] 📦 Objects (${objects.length}):`);
+        objects.forEach((obj, i) => {
+            logger.info(`  [${i + 1}] ${obj.type || 'Unknown'} — ${obj.details || 'No details'}`);
+        });
+    }
+
+    if (persons.length > 0) {
+        logger.info(`[imageAnalysisService] 👤 Persons (${persons.length}):`);
+        persons.forEach((p, i) => {
+            logger.info(`  [${i + 1}] ${p.gender || '?'}, ~${p.estimatedAge || '?'} | ${p.clothing || ''} | Action: ${p.action || 'N/A'} | Face visible: ${p.faceVisible}`);
+        });
+    }
+
+    logger.info(`[imageAnalysisService] ⏱  Total time : ${totalTime}ms`);
+    logger.info('[imageAnalysisService] Full JSON:');
+    logger.info(JSON.stringify({ isAiGenerated: false, confidence: detectionResult.confidence, forensicAnalysis }, null, 2));
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return {
         status: 'completed',
