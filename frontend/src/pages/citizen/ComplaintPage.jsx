@@ -71,6 +71,8 @@ export default function ComplaintPage() {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraMode, setCameraMode] = useState("photo"); // "photo" | "video"
   const [isRecording, setIsRecording] = useState(false);
+  const [isTextChatEnabled, setIsTextChatEnabled] = useState(false);
+  const [textInput, setTextInput] = useState("");
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
