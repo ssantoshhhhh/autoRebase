@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../utils/api";
 import toast from "react-hot-toast";
@@ -8,6 +9,7 @@ import { User, Phone, MapPin, Globe, Save, LogOut } from "lucide-react";
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, loginCitizen, logoutCitizen } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -85,7 +87,7 @@ export default function ProfilePage() {
           e.currentTarget.style.transform = "translateX(0)";
         }}
       >
-        &#8592; Back
+        &#8592; {t("common.back").replace("← ", "")}
       </button>
       {/* Header */}
       <div
@@ -107,7 +109,7 @@ export default function ProfilePage() {
           My Profile
         </div>
         <button className="btn btn-ghost btn-sm" onClick={logoutCitizen}>
-          <LogOut size={16} style={{ marginRight: "8px" }} /> Logout
+          <LogOut size={16} style={{ marginRight: "8px" }} /> {t("common.logout")}
         </button>
       </div>
 
@@ -125,7 +127,7 @@ export default function ProfilePage() {
                   size={14}
                   style={{ marginRight: "8px", verticalAlign: "middle" }}
                 />
-                Full Name
+                {t("profile.name")}
               </label>
               <input
                 type="text"
@@ -134,7 +136,7 @@ export default function ProfilePage() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="Enter your name"
+                placeholder={t("profile.namePlaceholder")}
               />
             </div>
 
@@ -144,7 +146,7 @@ export default function ProfilePage() {
                   size={14}
                   style={{ marginRight: "8px", verticalAlign: "middle" }}
                 />
-                Mobile Number
+                {t("profile.mobile")}
               </label>
               <input
                 type="text"
@@ -153,7 +155,7 @@ export default function ProfilePage() {
                 onChange={(e) =>
                   setFormData({ ...formData, mobileNumber: e.target.value })
                 }
-                placeholder="Enter 10-digit mobile"
+                placeholder={t("profile.mobilePlaceholder")}
               />
             </div>
 
@@ -163,7 +165,7 @@ export default function ProfilePage() {
                   size={14}
                   style={{ marginRight: "8px", verticalAlign: "middle" }}
                 />
-                Preferred Language
+                {t("profile.language")}
               </label>
               <select
                 className="input"
@@ -180,6 +182,9 @@ export default function ProfilePage() {
                 <option value="mr">Marathi</option>
                 <option value="bn">Bengali</option>
                 <option value="gu">Gujarati</option>
+                <option value="pa">Punjabi</option>
+                <option value="or">Odia</option>
+                <option value="ml">Malayalam</option>
               </select>
             </div>
 
@@ -189,7 +194,7 @@ export default function ProfilePage() {
                   size={14}
                   style={{ marginRight: "8px", verticalAlign: "middle" }}
                 />
-                Current Location
+                {t("profile.location")}
               </label>
               <div style={{ display: "flex", gap: "12px" }}>
                 <input
@@ -202,14 +207,14 @@ export default function ProfilePage() {
                       : ""
                   }
                   readOnly
-                  placeholder="No location set"
+                  placeholder={t("profile.noLocation")}
                 />
                 <button
                   type="button"
                   className="btn btn-outline"
                   onClick={setLocation}
                 >
-                  Get GPS
+                  {t("profile.getGps")}
                 </button>
               </div>
               <p
@@ -219,7 +224,7 @@ export default function ProfilePage() {
                   marginTop: "8px",
                 }}
               >
-                * Used for routing complaints to the nearest police station.
+                {t("profile.locationNote")}
               </p>
             </div>
 
@@ -241,7 +246,7 @@ export default function ProfilePage() {
                     marginBottom: "4px",
                   }}
                 >
-                  Assigned Station
+                  {t("profile.assignedStation")}
                 </div>
                 <div style={{ fontWeight: 600 }}>
                   {user.policeStation.stationName}
@@ -249,7 +254,7 @@ export default function ProfilePage() {
                 <div
                   style={{ fontSize: "0.8rem", color: "var(--clr-text-muted)" }}
                 >
-                  {user.policeStation.district} District
+                  {user.policeStation.district} {t("profile.district")}
                 </div>
               </div>
             )}
@@ -261,7 +266,7 @@ export default function ProfilePage() {
               style={{ marginTop: "12px" }}
             >
               <Save size={18} style={{ marginRight: "10px" }} />
-              {loading ? "Updating..." : "Save Profile Details"}
+              {loading ? t("profile.saving") : t("profile.save")}
             </button>
           </form>
         </div>

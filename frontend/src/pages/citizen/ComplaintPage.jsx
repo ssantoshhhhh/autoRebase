@@ -31,6 +31,9 @@ import {
   ShieldAlert,
   Camera,
   FolderOpen,
+  Pencil,
+  Check,
+  FileText,
 } from "lucide-react";
 
 export default function ComplaintPage() {
@@ -73,6 +76,8 @@ export default function ComplaintPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTextChatEnabled, setIsTextChatEnabled] = useState(false);
   const [textInput, setTextInput] = useState("");
+  const [pendingEvidenceIds, setPendingEvidenceIds] = useState([]);
+  const lastAiDataRef = useRef(null);
 
   // ── Age-adaptive state ─────────────────────────────────────────────────
   const [isGreetingResponded, setIsGreetingResponded] = useState(false);
@@ -83,6 +88,9 @@ export default function ComplaintPage() {
   // ── Edit message state ────────────────────────────────────────────────
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedText, setEditedText] = useState("");
+
+  // ── Age message tracking ─────────────────────────────────────────────
+  const ageMessageIdRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
@@ -131,6 +139,24 @@ export default function ComplaintPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   useEffect(scrollToBottom, [messages, interimTranscript, isLoading]);
+
+  // ── Refresh / tab-close guard ───────────────────────────────────────────
+  // Always warn when leaving the complaint page — browser dialog on F5/Ctrl-R/close
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "Your complaint session will be lost. Are you sure you want to leave?";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // ── Custom back-navigation confirmation modal state ─────────────────────
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const handleBackClick = () => setShowLeaveModal(true);
+  const confirmLeave = () => { setShowLeaveModal(false); navigate(-1); };
+  const cancelLeave = () => setShowLeaveModal(false);
 
   // Auto-enable mic after AI finishes speaking (Hands-free mode)
   const prevSpeakingRef = useRef(false);
@@ -291,6 +317,7 @@ export default function ComplaintPage() {
     setIsSubmitting(true);
     try {
       const transcript = messages
+        .filter((m) => m.text && typeof m.text === "string")
         .map((m) => `${m.role === "ai" ? "REVA" : "USER"}: ${m.text}`)
         .join("\n");
 
@@ -304,15 +331,44 @@ export default function ComplaintPage() {
         legalConfirmed: true,
         structuredJson: {
           stationId: activeStation.id,
-          incidentType: aiData?.incidentType || "AI Assistant Report",
-          incidentLocation: aiData?.location || "Detected",
-          incidentDescription: aiData?.description || "See transcript",
-          incidentDateTime: aiData?.dateTime || new Date().toISOString(),
+          incidentType: aiData?.incidentType || lastAiDataRef.current?.incidentType || "AI Assistant Report",
+          incidentLocation: aiData?.location || lastAiDataRef.current?.location || "Detected",
+          incidentDescription: aiData?.description || lastAiDataRef.current?.description || "See transcript",
+          incidentDateTime: aiData?.dateTime || lastAiDataRef.current?.dateTime || new Date().toISOString(),
         },
+        evidenceIds: pendingEvidenceIds,
       });
 
-      toast.success("Complaint filed successfully!");
-      navigate(`/citizen/my-complaints`);
+      const { trackingId, station, priority, isEmergency } = response.data;
+
+      // Build a summary by parsing user messages from the conversation
+      const userTexts = messages
+        .filter((m) => m.role === "user" && !m.type)
+        .map((m) => m.text)
+        .join(" | ");
+
+      // Add the complaint receipt as a special AI message bubble
+      const receiptMsg = {
+        id: (Date.now() + 2).toString(),
+        role: "ai",
+        type: "receipt",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        receipt: {
+          trackingId,
+          station: station || activeStation?.stationName,
+          district: activeStation?.district,
+          priority,
+          isEmergency,
+          incidentType: aiData?.incidentType || "AI Assistant Report",
+          location: aiData?.location || activeStation ? `${activeStation.stationName}, ${activeStation.district}` : "Detected",
+          description: aiData?.description || userTexts.slice(0, 200),
+          dateTime: aiData?.dateTime || new Date().toISOString(),
+          filedAt: new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }),
+        },
+      };
+
+      setMessages((prev) => [...prev, receiptMsg]);
+      toast.success("Complaint filed! Your tracking ID is " + trackingId);
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
@@ -396,6 +452,7 @@ export default function ComplaintPage() {
       setUserAge(age);
       setUserCategory(category);
       setIsAgeCollected(true);
+      ageMessageIdRef.current = userMsg.id; // remember which message contained the age
 
       const confirmations = {
         child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
@@ -440,14 +497,15 @@ export default function ComplaintPage() {
 
       const aiResponseRaw = response.data.reply;
 
-      // Parse [[SUBMIT: {json}]] signal
+      // Parse [[SUBMIT: {json}]] signal — supports multiline JSON
       let aiText = aiResponseRaw;
       let aiData = null;
-      const submitMatch = aiResponseRaw.match(/\[\[SUBMIT:\s*(\{.*?\})\]\]/);
+      const submitMatch = aiResponseRaw.match(/\[\[SUBMIT:\s*([\s\S]*?)\]\]/);
 
       if (submitMatch) {
         try {
-          aiData = JSON.parse(submitMatch[1]);
+          aiData = JSON.parse(submitMatch[1].trim());
+          lastAiDataRef.current = aiData; // persist for manual button fallback
           aiText = aiResponseRaw.replace(submitMatch[0], "").trim();
         } catch (e) {
           console.error("Failed to parse AI submission data", e);
@@ -533,6 +591,21 @@ export default function ComplaintPage() {
     const trimmed = editedText.trim();
     if (!trimmed) return;
 
+    // If the user edited their age message, re-detect the age from the new text
+    let effectiveAge = userAge;
+    let effectiveCategory = userCategory;
+    if (msgId === ageMessageIdRef.current) {
+      const ageMatch = trimmed.match(/\d+/);
+      const parsedAge = ageMatch ? parseInt(ageMatch[0], 10) : null;
+      if (parsedAge && parsedAge >= 1 && parsedAge <= 120) {
+        const newCategory = parsedAge < 18 ? "child" : parsedAge <= 60 ? "adult" : "senior";
+        effectiveAge = parsedAge;
+        effectiveCategory = newCategory;
+        setUserAge(parsedAge);
+        setUserCategory(newCategory);
+      }
+    }
+
     // 1. Update the user message in-place
     setMessages((prev) =>
       prev.map((m) => (m.id === msgId ? { ...m, text: trimmed } : m))
@@ -562,8 +635,8 @@ export default function ComplaintPage() {
           ? `${user.policeStation.stationName}, ${user.policeStation.district}`
           : "Unknown",
         history: history.slice(-5),
-        userAge,
-        userCategory,
+        userAge: effectiveAge,
+        userCategory: effectiveCategory,
       };
 
       const response = await api.post("/api/chat", {
@@ -708,19 +781,26 @@ export default function ComplaintPage() {
     try {
       const formData = new FormData();
       formData.append("image", file);
+      if (user?.id) formData.append("uploaderId", user.id);
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
         { method: "POST", body: formData },
       );
       const result = await response.json();
       console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
-      setMessages((prev) =>
-        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
-      );
-      if (result.success && result.module1?.status === "completed") {
-        toast.success("Analysis complete — check server console for result.");
+
+      if (result.rejected || result.module1?.isAiGenerated) {
+        // Remove the bubble — AI-generated images are not accepted as evidence
+        setMessages((prev) => prev.filter((m) => m.id !== mediaId));
+        toast.error("🤖 AI-generated image detected. This evidence has been rejected.", { duration: 5000 });
       } else {
-        toast.error(result.module1?.error || "Analysis failed.");
+        setMessages((prev) => prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m));
+        if (result.evidenceId) setPendingEvidenceIds((prev) => [...prev, result.evidenceId]);
+        if (result.module1?.status === "completed") {
+          toast.success("Evidence uploaded and analysed.");
+        } else {
+          toast.error(result.module1?.error || "Analysis failed.");
+        }
       }
     } catch (err) {
       console.error("[Media Analysis Error]", err);
@@ -767,6 +847,7 @@ export default function ComplaintPage() {
     try {
       const formData = new FormData();
       formData.append("image", file);
+      if (user?.id) formData.append("uploaderId", user.id);
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
@@ -776,15 +857,20 @@ export default function ComplaintPage() {
 
       console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
 
-      // Mark image as done loading
-      setMessages((prev) =>
-        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
-      );
-
-      if (result.success && result.module1?.status === "completed") {
-        toast.success("Analysis complete — check server logs for full report.");
+      if (result.rejected || result.module1?.isAiGenerated) {
+        // AI-generated — remove the bubble and reject
+        setMessages((prev) => prev.filter((m) => m.id !== mediaId));
+        toast.error("🤖 AI-generated image detected. This evidence has been rejected.", { duration: 5000 });
       } else {
-        toast.error(result.module1?.error || "Analysis failed.");
+        setMessages((prev) =>
+          prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
+        );
+        if (result.evidenceId) setPendingEvidenceIds((prev) => [...prev, result.evidenceId]);
+        if (result.module1?.status === "completed") {
+          toast.success("Evidence uploaded and analysed.");
+        } else {
+          toast.error(result.module1?.error || "Analysis failed.");
+        }
       }
     } catch (err) {
       console.error("[Media Analysis Error]", err);
@@ -1421,35 +1507,176 @@ export default function ComplaintPage() {
                     </div>
                   )}
 
-                  {/* --- Normal Text Bubble --- */}
-                  {!msg.type && (
+                  {/* --- Complaint Receipt Bubble --- */}
+                  {msg.type === "receipt" && msg.receipt && (
                     <div
                       style={{
-                        padding: "12px 18px",
-                        borderRadius:
-                          msg.role === "user"
-                            ? "20px 20px 4px 20px"
-                            : "20px 20px 20px 4px",
-                        backgroundColor:
-                          msg.role === "user"
-                            ? "#4f46e5"
-                            : "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        fontSize: "0.95rem",
-                        lineHeight: "1.5",
+                        padding: "20px",
+                        borderRadius: "20px 20px 20px 4px",
+                        backgroundColor: "rgba(16,185,129,0.06)",
+                        border: "1px solid rgba(16,185,129,0.3)",
+                        maxWidth: "340px",
+                        fontSize: "0.85rem",
                       }}
                     >
-                      {msg.text}
-                      <div
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+                        <CheckCircle2 size={20} color="#10b981" />
+                        <span style={{ fontWeight: 700, color: "#10b981", fontSize: "0.95rem" }}>
+                          Complaint Filed Successfully
+                        </span>
+                      </div>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "10px", padding: "12px", marginBottom: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>
+                          Tracking ID
+                        </div>
+                        <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#a78bfa", letterSpacing: "2px" }}>
+                          {msg.receipt.trackingId}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+                        {msg.receipt.station && (
+                          <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                            <MapPin size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#60a5fa" }} />
+                            <span>{msg.receipt.station}{msg.receipt.district ? `, ${msg.receipt.district}` : ""}</span>
+                          </div>
+                        )}
+                        {msg.receipt.incidentType && (
+                          <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                            <FileText size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#a78bfa" }} />
+                            <span>{msg.receipt.incidentType}</span>
+                          </div>
+                        )}
+                        {msg.receipt.priority && (
+                          <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: "2px", color: msg.receipt.priority === "URGENT" ? "#f87171" : "#fbbf24" }} />
+                            <span>Priority: {msg.receipt.priority}</span>
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                          <Clock size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#34d399" }} />
+                          <span>Filed at {msg.receipt.filedAt}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/track/${msg.receipt.trackingId}`)}
                         style={{
-                          fontSize: "10px",
-                          color: "rgba(255,255,255,0.3)",
-                          textAlign: "right",
-                          marginTop: "4px",
+                          width: "100%",
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: "rgba(139,92,246,0.2)",
+                          border: "1px solid rgba(139,92,246,0.4)",
+                          color: "#a78bfa",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
                         }}
                       >
-                        {msg.timestamp}
-                      </div>
+                        Track Complaint <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* --- Normal Text Bubble --- */}
+                  {!msg.type && (
+                    <div style={{ position: "relative" }}>
+                      {editingMessageId === msg.id ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: "220px", maxWidth: "420px" }}>
+                          <textarea
+                            value={editedText}
+                            onChange={(e) => setEditedText(e.target.value)}
+                            autoFocus
+                            rows={3}
+                            style={{
+                              padding: "12px 18px",
+                              borderRadius: "16px",
+                              background: "rgba(79,70,229,0.15)",
+                              border: "1px solid rgba(79,70,229,0.6)",
+                              color: "#fff",
+                              fontSize: "0.95rem",
+                              lineHeight: "1.5",
+                              resize: "none",
+                              outline: "none",
+                              width: "100%",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                            <button
+                              onClick={() => setEditingMessageId(null)}
+                              style={{ padding: "6px 14px", borderRadius: "8px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ccc", fontSize: "0.8rem", cursor: "pointer" }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveEdit(msg.id)}
+                              style={{ padding: "6px 14px", borderRadius: "8px", background: "rgba(79,70,229,0.5)", border: "1px solid rgba(79,70,229,0.7)", color: "#fff", fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                            >
+                              <Check size={13} /> Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ position: "relative" }}>
+                          <div
+                            style={{
+                              padding: "12px 18px",
+                              borderRadius:
+                                msg.role === "user"
+                                  ? "20px 20px 4px 20px"
+                                  : "20px 20px 20px 4px",
+                              backgroundColor:
+                                msg.role === "user"
+                                  ? "#4f46e5"
+                                  : "rgba(255,255,255,0.05)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              fontSize: "0.95rem",
+                              lineHeight: "1.5",
+                            }}
+                          >
+                            {msg.text}
+                            <div
+                              style={{
+                                fontSize: "10px",
+                                color: "rgba(255,255,255,0.3)",
+                                textAlign: "right",
+                                marginTop: "4px",
+                              }}
+                            >
+                              {msg.timestamp}
+                            </div>
+                          </div>
+                          {msg.role === "user" && (
+                            <button
+                              onClick={() => { setEditingMessageId(msg.id); setEditedText(msg.text); }}
+                              title="Edit message"
+                              style={{
+                                position: "absolute",
+                                top: "-10px",
+                                left: "-10px",
+                                width: "26px",
+                                height: "26px",
+                                borderRadius: "50%",
+                                background: "rgba(79,70,229,0.9)",
+                                border: "1px solid rgba(139,92,246,0.6)",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                opacity: 0.25,
+                                transition: "opacity 0.2s",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.25")}
+                            >
+                              <Pencil size={12} color="#c4b5fd" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2326,6 +2553,62 @@ export default function ComplaintPage() {
       </div>
 
       {/* ── In-browser Camera Modal ─────────────────────────────────────── */}
+      {/* ── Leave Confirmation Modal ───────────────────────── */}
+      {showLeaveModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(6px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "24px",
+        }}>
+          <div style={{
+            background: "#111827",
+            border: "1px solid rgba(239,68,68,0.35)",
+            borderRadius: "20px",
+            padding: "32px 28px",
+            maxWidth: "380px",
+            width: "100%",
+            textAlign: "center",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>⚠️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: "1.15rem", color: "#f3f4f6" }}>
+              Leave complaint session?
+            </h3>
+            <p style={{ margin: "0 0 24px", fontSize: "0.85rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+              Your conversation will be lost and cannot be recovered. Are you sure you want to go back?
+            </p>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={cancelLeave}
+                style={{
+                  flex: 1, padding: "12px",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "12px", color: "white",
+                  fontWeight: "600", cursor: "pointer", fontSize: "0.9rem",
+                }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={confirmLeave}
+                style={{
+                  flex: 1, padding: "12px",
+                  background: "rgba(239,68,68,0.85)",
+                  border: "1px solid rgba(239,68,68,0.5)",
+                  borderRadius: "12px", color: "white",
+                  fontWeight: "700", cursor: "pointer", fontSize: "0.9rem",
+                }}
+              >
+                Yes, Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCameraModal && (
         <div
           style={{

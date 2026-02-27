@@ -60,6 +60,7 @@ enum AnalysisStatus {
   PROCESSING // Actively calling AI
   COMPLETED // Result stored in analysisJson
   FAILED // Error stored in analysisError
+  AI_REJECTED // Image was detected as AI-generated and rejected
 }
 
 // ─── Core Identity Models ─────────────────────────────────────────────────────
@@ -189,9 +190,9 @@ model ComplaintUpdate {
 // AI analysis fields are populated ONLY for IMAGE / VIDEO categories.
 
 model Evidence {
-  id          String @id @default(uuid())
-  complaintId String @map("complaint_id")
-  uploaderId  String @map("uploader_id") // always the citizen who uploaded
+  id          String  @id @default(uuid())
+  complaintId String? @map("complaint_id") // null until complaint is filed
+  uploaderId  String  @map("uploader_id") // always the citizen who uploaded
 
   // ── File metadata ──────────────────────────────────────────────────────────
   fileName      String        @map("file_name") // original filename, e.g. "scene.jpg"
@@ -234,7 +235,7 @@ model Evidence {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   // ── Relations ──────────────────────────────────────────────────────────────
-  complaint     Complaint      @relation("ComplaintEvidence", fields: [complaintId], references: [id])
+  complaint     Complaint?     @relation("ComplaintEvidence", fields: [complaintId], references: [id])
   uploader      User           @relation("UploaderEvidence", fields: [uploaderId], references: [id])
 
   // ── Indexes ────────────────────────────────────────────────────────────────

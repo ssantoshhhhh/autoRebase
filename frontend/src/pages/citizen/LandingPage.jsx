@@ -1,62 +1,43 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 
-const STATS = [
-  { value: "2.4M+", label: "Complaints Filed" },
-  { value: "98%", label: "Resolution Rate" },
-  { value: "11", label: "Languages" },
-  { value: "< 2.5s", label: "AI Response Time" },
+const STATS_VALUES = ["2.4M+", "98%", "11", "< 2.5s"];
+const STATS_KEYS = [
+  "stats.complaintsLabel",
+  "stats.resolutionLabel",
+  "stats.languagesLabel",
+  "stats.responseLabel",
 ];
 
-const FEATURES = [
-  {
-    icon: "🎙️",
-    title: "Voice-First AI Agent",
-    desc: "Speak your complaint in your language. Our AI conducts a structured interview like a trained intake officer.",
-  },
-  {
-    icon: "🛡️",
-    title: "Aadhar-Verified Identity",
-    desc: "Secure OTP login with masked Aadhaar storage. Your privacy is our priority.",
-  },
-  {
-    icon: "📍",
-    title: "Geofence Routing",
-    desc: "Automatically routes your complaint to the correct police station based on your GPS location.",
-  },
-  {
-    icon: "⚡",
-    title: "Real-Time Risk Assessment",
-    desc: "AI scores threat levels 0-100. Emergencies trigger instant escalation to on-duty officers.",
-  },
-  {
-    icon: "📋",
-    title: "FIR-Style Summary",
-    desc: "AI generates structured legal summaries ready for official filing, with all mandatory fields.",
-  },
-  {
-    icon: "🔒",
-    title: "End-to-End Security",
-    desc: "Row-level database security, encrypted evidence, audit trails, and tamper-proof logs.",
-  },
-];
+const FEATURES_ICONS = ["🎙️", "🛡️", "📍", "⚡", "📋", "🔒"];
+const FEATURES_KEYS = ["voice", "aadhaar", "geofence", "risk", "fir", "security"];
 
 const LANGUAGES = [
-  "English",
-  "हिंदी",
-  "தமிழ்",
-  "తెలుగు",
-  "ಕನ್ನಡ",
-  "मराठी",
-  "বাংলা",
-  "ગુજરાતી",
-  "ਪੰਜਾਬੀ",
-  "ଓଡ଼ିଆ",
-  "മലയാളം",
+  { label: "English", code: "en" },
+  { label: "हिंदी", code: "hi" },
+  { label: "தமிழ்", code: "ta" },
+  { label: "తెలుగు", code: "te" },
+  { label: "ಕನ್ನಡ", code: "kn" },
+  { label: "मराठी", code: "mr" },
+  { label: "বাংলা", code: "bn" },
+  { label: "ગુજરાતી", code: "gu" },
+  { label: "ਪੰਜਾਬੀ", code: "pa" },
+  { label: "ଓଡ଼ିଆ", code: "or" },
+  { label: "മലയാളം", code: "ml" },
 ];
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const [activeLang, setActiveLang] = useState(i18n.language || "en");
+
+  function handleLangChange(code) {
+    i18n.changeLanguage(code);
+    localStorage.setItem("reva_language", code);
+    setActiveLang(code);
+  }
 
   return (
     <div style={{ background: "var(--clr-bg)", minHeight: "100vh" }}>
@@ -109,22 +90,22 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             <Link to="/track" className="btn btn-ghost btn-sm">
-              Track Complaint
+              {t("nav.track")}
             </Link>
             {user ? (
               <>
                 <Link to="/profile" className="btn btn-ghost btn-sm">
-                  Profile
+                  {t("nav.profile")}
                 </Link>
                 <Link to="/my-complaints" className="btn btn-ghost btn-sm">
-                  My Cases
+                  {t("nav.myCases")}
                 </Link>
                 <Link
                   to="/complaint"
                   className="btn btn-primary btn-sm"
                   id="file-complaint-nav"
                 >
-                  File Complaint
+                  {t("nav.fileComplaint")}
                 </Link>
               </>
             ) : (
@@ -134,14 +115,14 @@ export default function LandingPage() {
                   className="btn btn-outline btn-sm"
                   id="login-nav"
                 >
-                  Sign In
+                  {t("nav.signIn")}
                 </Link>
                 <Link
                   to="/police/login"
                   className="btn btn-ghost btn-sm"
                   id="police-login-nav"
                 >
-                  Police Portal
+                  {t("nav.policePortal")}
                 </Link>
               </>
             )}
@@ -216,7 +197,7 @@ export default function LandingPage() {
                 display: "inline-block",
               }}
             />
-            Powered by Azure AI · Government of India Initiative
+            {t("hero.badge")}
           </div>
 
           <h1
@@ -232,7 +213,7 @@ export default function LandingPage() {
               backgroundClip: "text",
             }}
           >
-            Your Voice.
+            {t("hero.title1")}
             <br />
             <span
               style={{
@@ -242,7 +223,7 @@ export default function LandingPage() {
                 backgroundClip: "text",
               }}
             >
-              Their Action.
+              {t("hero.title2")}
             </span>
           </h1>
 
@@ -255,9 +236,7 @@ export default function LandingPage() {
               lineHeight: 1.7,
             }}
           >
-            India's first AI-powered multilingual complaint portal. Speak your
-            complaint in your language — our AI structures, prioritizes, and
-            routes it to the right police station instantly.
+            {t("hero.subtitle")}
           </p>
 
           <div
@@ -273,14 +252,14 @@ export default function LandingPage() {
               className="btn btn-primary btn-lg"
               id="hero-file-btn"
             >
-              🎙️ File a Complaint
+              {t("hero.fileBtn")}
             </Link>
             <Link
               to="/track"
               className="btn btn-outline btn-lg"
               id="hero-track-btn"
             >
-              📋 Track Complaint
+              {t("hero.trackBtn")}
             </Link>
           </div>
 
@@ -294,20 +273,24 @@ export default function LandingPage() {
               justifyContent: "center",
             }}
           >
-            {LANGUAGES.map((lang) => (
-              <span
-                key={lang}
+            {LANGUAGES.map(({ label, code }) => (
+              <button
+                key={code}
+                onClick={() => handleLangChange(code)}
                 style={{
                   padding: "4px 12px",
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid var(--clr-border)",
+                  background: activeLang === code ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.04)",
+                  border: activeLang === code ? "1px solid rgba(59,130,246,0.5)" : "1px solid var(--clr-border)",
                   borderRadius: "9999px",
                   fontSize: "0.8rem",
-                  color: "var(--clr-text-muted)",
+                  color: activeLang === code ? "var(--clr-primary-light)" : "var(--clr-text-muted)",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  fontFamily: "inherit",
                 }}
               >
-                {lang}
-              </span>
+                {label}
+              </button>
             ))}
           </div>
         </div>
@@ -331,8 +314,8 @@ export default function LandingPage() {
             textAlign: "center",
           }}
         >
-          {STATS.map((stat) => (
-            <div key={stat.label}>
+          {STATS_VALUES.map((value, i) => (
+            <div key={STATS_KEYS[i]}>
               <div
                 style={{
                   fontFamily: "var(--font-display)",
@@ -344,7 +327,7 @@ export default function LandingPage() {
                   backgroundClip: "text",
                 }}
               >
-                {stat.value}
+                {value}
               </div>
               <div
                 style={{
@@ -353,7 +336,7 @@ export default function LandingPage() {
                   marginTop: "4px",
                 }}
               >
-                {stat.label}
+                {t(STATS_KEYS[i])}
               </div>
             </div>
           ))}
@@ -364,7 +347,7 @@ export default function LandingPage() {
       <section style={{ padding: "80px 24px" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "56px" }}>
-            <h2>Enterprise-Grade Features</h2>
+            <h2>{t("features.heading")}</h2>
             <p
               style={{
                 marginTop: "12px",
@@ -373,8 +356,7 @@ export default function LandingPage() {
                 margin: "12px auto 0",
               }}
             >
-              Built for the scale and security demands of national law
-              enforcement
+              {t("features.subheading")}
             </p>
           </div>
 
@@ -385,20 +367,20 @@ export default function LandingPage() {
               gap: "20px",
             }}
           >
-            {FEATURES.map((feat, i) => (
+            {FEATURES_KEYS.map((key, i) => (
               <div
-                key={feat.title}
+                key={key}
                 className="card"
                 style={{ animationDelay: `${i * 0.1}s` }}
               >
                 <div style={{ fontSize: "2rem", marginBottom: "12px" }}>
-                  {feat.icon}
+                  {FEATURES_ICONS[i]}
                 </div>
                 <h4 style={{ marginBottom: "8px", fontSize: "1.05rem" }}>
-                  {feat.title}
+                  {t(`features.${key}.title`)}
                 </h4>
                 <p style={{ fontSize: "0.88rem", lineHeight: 1.6 }}>
-                  {feat.desc}
+                  {t(`features.${key}.desc`)}
                 </p>
               </div>
             ))}
@@ -415,7 +397,7 @@ export default function LandingPage() {
           >
             <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>🚨</div>
             <h3 style={{ color: "#ff3b30", marginBottom: "8px" }}>
-              Emergency? Don't wait.
+              {t("emergency.title")}
             </h3>
             <p
               style={{
@@ -424,8 +406,7 @@ export default function LandingPage() {
                 fontSize: "0.9rem",
               }}
             >
-              Call 112 (Emergency) or 100 (Police) immediately for
-              life-threatening situations.
+              {t("emergency.subtitle")}
             </p>
             <div
               style={{
@@ -440,14 +421,14 @@ export default function LandingPage() {
                 className="btn btn-danger btn-lg"
                 id="emergency-call-112"
               >
-                📞 Call 112
+                {t("emergency.call112")}
               </a>
               <a
                 href="tel:100"
                 className="btn btn-outline btn-lg"
                 id="emergency-call-100"
               >
-                📞 Call 100
+                {t("emergency.call100")}
               </a>
             </div>
           </div>
@@ -480,8 +461,7 @@ export default function LandingPage() {
             </span>
           </div>
           <p style={{ fontSize: "0.8rem", color: "var(--clr-text-faint)" }}>
-            © 2024 REVA AI. Powered by Azure OpenAI & Azure Speech Services. All
-            data encrypted and stored securely.
+            {t("footer.copyright")}
           </p>
           <div
             style={{
@@ -499,7 +479,7 @@ export default function LandingPage() {
                 textDecoration: "none",
               }}
             >
-              Police Portal
+              {t("footer.policePortal")}
             </Link>
             <Link
               to="/track"
@@ -509,7 +489,7 @@ export default function LandingPage() {
                 textDecoration: "none",
               }}
             >
-              Track Complaint
+              {t("footer.track")}
             </Link>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../utils/api";
 import toast from "react-hot-toast";
@@ -14,6 +15,9 @@ const LANGUAGES = [
   { code: "mr", native: "ಮರಾठी" },
   { code: "bn", native: "বাংলা" },
   { code: "gu", native: "ગુજરાતી" },
+  { code: "pa", native: "ਪੰਜਾਬੀ" },
+  { code: "or", native: "ଓଡ଼ିଆ" },
+  { code: "ml", native: "മലയാളം" },
 ];
 
 export default function LoginPage() {
@@ -32,6 +36,7 @@ export default function LoginPage() {
 
   const navigate = useNavigate();
   const { loginCitizen, user, loading: authLoading } = useAuth();
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -259,14 +264,14 @@ export default function LoginPage() {
           <h1
             style={{ fontSize: "1.75rem", color: "white", marginBottom: "8px" }}
           >
-            {step === "otp" ? "Verification" : "Citizen Login"}
+            {step === "otp" ? t("login.verifyOtp") : t("login.heading")}
           </h1>
           <p style={{ color: "var(--clr-text-muted)", fontSize: "0.9rem" }}>
             {step === "form"
-              ? "Identify yourself to file a secure complaint"
+              ? t("login.subheading")
               : step === "pan_details"
                 ? "Confirm your identity details"
-                : `Code sent to mobile linked with ${masked}`}
+                : `${t("login.otpSentTo")} ${masked}`}
           </p>
         </div>
 
@@ -304,7 +309,7 @@ export default function LoginPage() {
                     fontSize: "0.85rem",
                   }}
                 >
-                  Aadhaar
+                  {t("login.aadhaarTab")}
                 </button>
                 <button
                   onClick={() => setLoginType("pan")}
@@ -325,7 +330,7 @@ export default function LoginPage() {
                     fontSize: "0.85rem",
                   }}
                 >
-                  PAN Card
+                  {t("login.panTab")}
                 </button>
                 <button
                   onClick={() => setLoginType("mobile")}
@@ -348,7 +353,7 @@ export default function LoginPage() {
                     fontSize: "0.85rem",
                   }}
                 >
-                  Mobile
+                  {t("login.mobileTab")}
                 </button>
               </div>
 
@@ -403,7 +408,7 @@ export default function LoginPage() {
                         cursor: "pointer",
                       }}
                     >
-                      I agree to the{" "}
+                      {t("login.termsAgree")}{" "}
                       <a
                         href={termsPdf}
                         target="_blank"
@@ -413,7 +418,7 @@ export default function LoginPage() {
                           textDecoration: "underline",
                         }}
                       >
-                        Terms & Conditions
+                        {t("login.termsLink")}
                       </a>
                     </label>
                   </div>
@@ -427,8 +432,8 @@ export default function LoginPage() {
                     }
                   >
                     {loading
-                      ? "Requesting Official OTP..."
-                      : "Get Aadhaar OTP →"}
+                      ? t("login.requestingOtp")
+                      : t("login.getAadhaarOtp")}
                   </button>
                   <p
                     style={{
@@ -438,8 +443,7 @@ export default function LoginPage() {
                       marginTop: "12px",
                     }}
                   >
-                    * Official OTP will be sent by UIDAI to your registered
-                    mobile.
+                    {t("login.otpNote")}
                   </p>
                 </div>
               ) : loginType === "pan" ? (
@@ -494,7 +498,7 @@ export default function LoginPage() {
                         cursor: "pointer",
                       }}
                     >
-                      I agree to the{" "}
+                      {t("login.termsAgree")}{" "}
                       <a
                         href={termsPdf}
                         target="_blank"
@@ -504,7 +508,7 @@ export default function LoginPage() {
                           textDecoration: "underline",
                         }}
                       >
-                        Terms & Conditions
+                        {t("login.termsLink")}
                       </a>
                     </label>
                   </div>
@@ -515,7 +519,7 @@ export default function LoginPage() {
                     onClick={getPanDetails}
                     disabled={loading || pan.length !== 10 || !acceptedTerms}
                   >
-                    {loading ? "Verifying Record..." : "Verify PAN →"}
+                    {loading ? t("login.verifyingRecord") : t("login.verifyPan")}
                   </button>
                 </div>
               ) : (
@@ -580,7 +584,7 @@ export default function LoginPage() {
                         cursor: "pointer",
                       }}
                     >
-                      I agree to the{" "}
+                      {t("login.termsAgree")}{" "}
                       <a
                         href={termsPdf}
                         target="_blank"
@@ -590,7 +594,7 @@ export default function LoginPage() {
                           textDecoration: "underline",
                         }}
                       >
-                        Terms & Conditions
+                        {t("login.termsLink")}
                       </a>
                     </label>
                   </div>
@@ -601,7 +605,7 @@ export default function LoginPage() {
                     onClick={sendOnlyMobileOtp}
                     disabled={loading || mobile.length !== 10 || !acceptedTerms}
                   >
-                    {loading ? "Sending..." : "Get Login OTP →"}
+                    {loading ? t("login.loading") : t("login.getMobileOtp")}
                   </button>
                 </div>
               )}
@@ -641,7 +645,7 @@ export default function LoginPage() {
                 disabled={!acceptedTerms}
                 style={{ opacity: !acceptedTerms ? 0.5 : 1 }}
               >
-                File Anonymously
+                {t("login.fileAnonymously")}
               </button>
             </>
           )}
@@ -730,14 +734,14 @@ export default function LoginPage() {
                 onClick={sendMobileOtpForPan}
                 disabled={loading || mobile.length !== 10}
               >
-                {loading ? "Sending Verification..." : "Verify Mobile via OTP"}
+                {loading ? t("login.sendingVerification") : t("login.verifyMobile")}
               </button>
               <button
                 className="btn btn-ghost w-full"
                 style={{ marginTop: "12px" }}
                 onClick={() => setStep("form")}
               >
-                ← Switch Account
+                {t("login.switchAccount")}
               </button>
             </div>
           )}
@@ -749,7 +753,7 @@ export default function LoginPage() {
                   className="label"
                   style={{ textAlign: "center", display: "block" }}
                 >
-                  Enter 6-digit Verification Code
+                  {t("login.enterOtp")}
                 </label>
                 <div
                   style={{
@@ -797,7 +801,7 @@ export default function LoginPage() {
                 }
                 disabled={loading || otpCells.join("").length !== 6}
               >
-                {loading ? "Verifying..." : "Verify & Login"}
+                    {loading ? t("login.verifying") : t("login.verifyOtp")}
               </button>
               <button
                 className="btn btn-ghost w-full"
