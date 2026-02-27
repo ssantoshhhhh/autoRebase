@@ -80,6 +80,10 @@ export default function ComplaintPage() {
   const [userAge, setUserAge] = useState(null);
   const [userCategory, setUserCategory] = useState(null); // "child" | "adult" | "senior"
 
+  // ── Edit message state ────────────────────────────────────────────────
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editedText, setEditedText] = useState("");
+
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
   const imageFileRef = useRef(null);
@@ -490,6 +494,74 @@ export default function ComplaintPage() {
       }
     } catch (err) {
       toast.error("AI Error");
+      setIsLoading(false);
+    }
+  };
+
+  // ── Save edited message ───────────────────────────────────────────────
+  const handleSaveEdit = async (msgId) => {
+    const trimmed = editedText.trim();
+    if (!trimmed) return;
+
+    // 1. Update the user message in-place
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msgId ? { ...m, text: trimmed } : m))
+    );
+
+    // 2. Remove the AI reply that immediately follows this message
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === msgId);
+      if (idx !== -1 && idx + 1 < prev.length && prev[idx + 1].role === "ai") {
+        return [...prev.slice(0, idx + 1), ...prev.slice(idx + 2)];
+      }
+      return prev;
+    });
+
+    setEditingMessageId(null);
+    setIsLoading(true);
+
+    try {
+      const history = messages
+        .filter((m) => !m.type && m.text)
+        .map((m) => ({ role: m.role === "ai" ? "assistant" : "user", content: m.text }));
+
+      const context = {
+        userName: user?.name,
+        mobile: user?.mobileNumber,
+        location: user?.policeStation?.stationName
+          ? `${user.policeStation.stationName}, ${user.policeStation.district}`
+          : "Unknown",
+        history: history.slice(-5),
+        userAge,
+        userCategory,
+      };
+
+      const response = await api.post("/api/chat", {
+        message: trimmed,
+        languageCode: language,
+        context,
+      });
+
+      const aiText = response.data.reply || "";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          text: aiText,
+          role: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+
+      const voicePrefix = getLocale(language);
+      const voice =
+        voices.find((v) => v.lang.startsWith(voicePrefix)) ||
+        voices.find((v) => v.lang.startsWith("en-IN"));
+      stopSTT();
+      speak(aiText, voice);
+    } catch (err) {
+      toast.error("Failed to get AI response.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -1278,33 +1350,95 @@ export default function ComplaintPage() {
 
                 {/* --- Normal Text Bubble --- */}
                 {!msg.type && (
-                  <div
-                    style={{
-                      padding: "12px 18px",
-                      borderRadius:
-                        msg.role === "user"
-                          ? "20px 20px 4px 20px"
-                          : "20px 20px 20px 4px",
-                      backgroundColor:
-                        msg.role === "user"
-                          ? "#4f46e5"
-                          : "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      fontSize: "0.95rem",
-                      lineHeight: "1.5",
-                    }}
-                  >
-                    {msg.text}
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "rgba(255,255,255,0.3)",
-                        textAlign: "right",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {msg.timestamp}
-                    </div>
+                  <div style={{ position: "relative" }}>
+                    {/* Edit button — only for user messages */}
+                    {msg.role === "user" && editingMessageId !== msg.id && (
+                      <button
+                        onClick={() => { setEditingMessageId(msg.id); setEditedText(msg.text); }}
+                        title="Edit message"
+                        style={{
+                          position: "absolute", top: "-8px", right: "-8px",
+                          background: "rgba(139,92,246,0.25)",
+                          border: "1px solid rgba(139,92,246,0.5)",
+                          borderRadius: "8px", color: "#c4b5fd",
+                          cursor: "pointer", padding: "3px 7px",
+                          fontSize: "10px", fontWeight: "700",
+                          zIndex: 5,
+                        }}
+                      >
+                        ✏ Edit
+                      </button>
+                    )}
+
+                    {/* Editing mode */}
+                    {editingMessageId === msg.id ? (
+                      <div style={{
+                        padding: "10px 14px",
+                        borderRadius: "20px 20px 4px 20px",
+                        backgroundColor: "rgba(79,70,229,0.2)",
+                        border: "1px solid rgba(139,92,246,0.6)",
+                        minWidth: "200px",
+                      }}>
+                        <textarea
+                          value={editedText}
+                          onChange={(e) => setEditedText(e.target.value)}
+                          rows={3}
+                          style={{
+                            width: "100%", background: "transparent",
+                            border: "none", outline: "none", color: "white",
+                            fontSize: "0.9rem", lineHeight: "1.5", resize: "none",
+                          }}
+                        />
+                        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "6px" }}>
+                          <button
+                            onClick={() => setEditingMessageId(null)}
+                            style={{
+                              background: "rgba(255,255,255,0.1)", border: "none",
+                              color: "rgba(255,255,255,0.6)", cursor: "pointer",
+                              padding: "4px 12px", borderRadius: "8px", fontSize: "11px",
+                            }}
+                          >Cancel</button>
+                          <button
+                            onClick={() => handleSaveEdit(msg.id)}
+                            style={{
+                              background: "#4f46e5", border: "none",
+                              color: "white", cursor: "pointer",
+                              padding: "4px 12px", borderRadius: "8px",
+                              fontSize: "11px", fontWeight: "700",
+                            }}
+                          >Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          padding: "12px 18px",
+                          borderRadius:
+                            msg.role === "user"
+                              ? "20px 20px 4px 20px"
+                              : "20px 20px 20px 4px",
+                          backgroundColor:
+                            msg.role === "user"
+                              ? "#4f46e5"
+                              : "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          fontSize: "0.95rem",
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        {msg.text}
+                        <div
+                          style={{
+                            fontSize: "10px",
+                            color: "rgba(255,255,255,0.3)",
+                            textAlign: "right",
+                            marginTop: "4px",
+                          }}
+                        >
+                          {msg.timestamp}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
