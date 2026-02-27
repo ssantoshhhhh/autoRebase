@@ -114,8 +114,9 @@ async function runImageAnalysis(imageBuffer, mimeType) {
     try {
         detectionResult = await checkIfAiGenerated(imageBuffer, mimeType);
     } catch (err) {
-        logger.error('[imageAnalysisService] AI detection failed:', err.message);
-        throw new Error('AI detection service failed: ' + err.message);
+        const errJson = JSON.stringify(err, Object.getOwnPropertyNames(err));
+        logger.error(`[imageAnalysisService] AI detection failed — full error: ${errJson}`);
+        throw err;
     }
 
     logger.info(`[imageAnalysisService] Detection complete. AI Generated: ${detectionResult.isAiGenerated}`);
@@ -138,8 +139,9 @@ async function runImageAnalysis(imageBuffer, mimeType) {
     try {
         forensicAnalysis = await generateForensicCaption(imageBuffer, mimeType);
     } catch (err) {
-        logger.error('[imageAnalysisService] Forensic captioning failed:', err.message);
-        throw new Error('Forensic captioning service failed: ' + err.message);
+        const errJson = JSON.stringify(err, Object.getOwnPropertyNames(err));
+        logger.error(`[imageAnalysisService] Forensic captioning failed — full error: ${errJson}`);
+        throw err;
     }
 
     const totalTime = Date.now() - startTime;
