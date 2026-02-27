@@ -574,12 +574,9 @@ export default function ComplaintPage() {
 
       console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
 
-      // Log full result to browser console only
-      console.log("[Image Analysis Result]", JSON.stringify(result, null, 2));
-
       // Mark image as done loading
       setMessages((prev) =>
-        prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
+        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
       );
 
       if (result.success && result.module1?.status === "completed") {
@@ -590,7 +587,7 @@ export default function ComplaintPage() {
     } catch (err) {
       console.error("[Media Analysis Error]", err);
       setMessages((prev) =>
-        prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
+        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
       );
       toast.error("Failed to connect to analysis service.");
     } finally {
