@@ -5,7 +5,6 @@ import api from "../../utils/api";
 import toast from "react-hot-toast";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "../../hooks/useSpeechSynthesis";
-import { getAIResponse } from "../../utils/ai";
 import {
   Mic,
   MicOff,
@@ -72,6 +71,8 @@ export default function ComplaintPage() {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraMode, setCameraMode] = useState("photo"); // "photo" | "video"
   const [isRecording, setIsRecording] = useState(false);
+  const [isTextChatEnabled, setIsTextChatEnabled] = useState(false);
+  const [textInput, setTextInput] = useState("");
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
@@ -323,7 +324,14 @@ export default function ComplaintPage() {
         history: history.slice(-5), // Send last 5 messages for context
       };
 
-      const aiResponseRaw = await getAIResponse(text, language, context);
+      // Call backend chat API instead of direct OpenAI call
+      const response = await api.post('/api/chat', {
+        message: text,
+        languageCode: language,
+        context: context,
+      });
+
+      const aiResponseRaw = response.data.reply;
 
       // Parse [[SUBMIT: {json}]] signal
       let aiText = aiResponseRaw;
@@ -1535,6 +1543,70 @@ export default function ComplaintPage() {
           )}
         </button>
 
+        {/* Text Input Section - Conditionally Rendered */}
+        {isTextChatEnabled && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              backgroundColor: "rgba(255,255,255,0.05)",
+              borderRadius: "24px",
+              padding: "4px 8px 4px 16px",
+              border: "1px solid rgba(255,255,255,0.15)",
+              minWidth: "280px",
+            }}
+          >
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter" && textInput.trim() && !isLoading) {
+                  sendMessage(textInput);
+                  setTextInput("");
+                }
+              }}
+              placeholder="Type a message..."
+              disabled={isLoading}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "white",
+                fontSize: "14px",
+                padding: "8px 0",
+              }}
+            />
+            <button
+              onClick={() => {
+                if (textInput.trim() && !isLoading) {
+                  sendMessage(textInput);
+                  setTextInput("");
+                }
+              }}
+              disabled={!textInput.trim() || isLoading}
+              style={{
+                background: textInput.trim() && !isLoading ? "#2563eb" : "rgba(255,255,255,0.1)",
+                border: "none",
+                color: "white",
+                cursor: textInput.trim() && !isLoading ? "pointer" : "not-allowed",
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s",
+                opacity: textInput.trim() && !isLoading ? 1 : 0.5,
+              }}
+            >
+              <Send size={18} />
+            </button>
+          </div>
+        )}
+
         <div
           style={{
             position: "relative",
@@ -1745,6 +1817,55 @@ export default function ComplaintPage() {
                     position: "absolute",
                     top: "3px",
                     left: autoResumeMic ? "27px" : "3px",
+                    transition: "0.3s",
+                  }}
+                />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                borderRadius: "16px",
+                marginTop: "12px",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: "600" }}>Enable Text Chatbot</div>
+                <div
+                  style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}
+                >
+                  Show text input for typing messages
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTextChatEnabled(!isTextChatEnabled)}
+                style={{
+                  width: "48px",
+                  height: "24px",
+                  borderRadius: "20px",
+                  border: "none",
+                  position: "relative",
+                  cursor: "pointer",
+                  backgroundColor: isTextChatEnabled
+                    ? "#8b5cf6"
+                    : "rgba(255,255,255,0.1)",
+                  transition: "0.3s",
+                }}
+              >
+                <div
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    backgroundColor: "white",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "3px",
+                    left: isTextChatEnabled ? "27px" : "3px",
                     transition: "0.3s",
                   }}
                 />
