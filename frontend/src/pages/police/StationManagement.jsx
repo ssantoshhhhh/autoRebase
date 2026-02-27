@@ -141,12 +141,17 @@ export default function StationManagement() {
     }
     setSubmitting(true);
     try {
-      await api.post("/api/stations", form);
-      toast.success("Station created!");
+      const res = await api.post("/api/stations", form);
+      toast.success(res.data.message || "Station created!");
       setShowAddForm(false);
       fetchStations();
     } catch (err) {
-      toast.error("Failed to create station");
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to create station";
+      toast.error(errorMsg);
+      console.error("Station Creation Error:", err.response?.data);
     } finally {
       setSubmitting(false);
     }

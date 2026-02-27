@@ -94,18 +94,36 @@ router.get('/nearest', async (req, res, next) => {
 
     const stations = await prisma.policeStation.findMany({ where: { status: true } });
     
-    let nearest = null;
-    let minDistance = Infinity;
+    let nearestWithinGeofence = null;
+    let minDistanceWithinGeofence = Infinity;
+    let absoluteNearest = null;
+    let minDistanceAbsolute = Infinity;
 
     for (const station of stations) {
       const dist = haversineDistance(parseFloat(lat), parseFloat(lng), station.latitude, station.longitude);
-      if (dist < minDistance) {
-        minDistance = dist;
-        nearest = { ...station, distanceKm: dist.toFixed(2) };
+      
+      // Track absolute nearest station regardless of geofence
+      if (dist < minDistanceAbsolute) {
+        minDistanceAbsolute = dist;
+        absoluteNearest = station;
+      }
+
+      // Track nearest station whose geofence actually contains the user
+      // Added 0.1km (100m) buffer to handle GPS jitter and float precision
+      if (dist <= (station.radiusKm + 0.1) && dist < minDistanceWithinGeofence) {
+        minDistanceWithinGeofence = dist;
+        nearestWithinGeofence = station;
       }
     }
 
-    res.json({ station: nearest, withinGeofence: nearest && minDistance <= nearest.radiusKm });
+    // Prioritize the station whose geofence the user is actually in
+    const finalStation = nearestWithinGeofence || absoluteNearest;
+    const finalDistance = nearestWithinGeofence ? minDistanceWithinGeofence : minDistanceAbsolute;
+
+    res.json({ 
+      station: finalStation ? { ...finalStation, distanceKm: finalDistance.toFixed(2) } : null, 
+      withinGeofence: !!nearestWithinGeofence 
+    });
   } catch (error) {
     next(error);
   }

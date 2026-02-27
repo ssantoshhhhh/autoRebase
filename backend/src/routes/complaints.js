@@ -367,7 +367,8 @@ async function findNearestStation(lat, lng) {
 
   for (const station of stations) {
     const distance = haversineDistance(lat, lng, station.latitude, station.longitude);
-    if (distance <= station.radiusKm && distance < minDistance) {
+    // Added 0.1km buffer for precision
+    if (distance <= (station.radiusKm + 0.1) && distance < minDistance) {
       minDistance = distance;
       nearest = station;
     }

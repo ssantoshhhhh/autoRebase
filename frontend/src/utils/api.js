@@ -9,7 +9,30 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('reva_token')
+    // Determine which token to use based on the path or current view
+    const url = config.url || "";
+    const isPoliceApi = url.includes('/api/police') || 
+                        url.includes('/api/stations') || 
+                        url.includes('/api/geofence') ||
+                        url.includes('/api/analytics');
+    
+    const isPolicePortal = window.location.pathname.startsWith('/police');
+
+    let token = null;
+
+    if (isPoliceApi || isPolicePortal) {
+      // Prioritize police token for police routes/portal
+      token = localStorage.getItem('reva_police_token');
+      // If we're on a police route but only have a citizen token, 
+      // maybe it's a shared route or the user is trying to access admin as citizen
+      if (!token) token = localStorage.getItem('reva_token');
+    } else {
+      // Normal citizen routes
+      token = localStorage.getItem('reva_token');
+      // Fallback to police token if citizen token is missing (some shared public routes)
+      if (!token) token = localStorage.getItem('reva_police_token');
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

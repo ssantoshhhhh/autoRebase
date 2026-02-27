@@ -12,17 +12,22 @@ router.get('/check', async (req, res, next) => {
     
     let matchedStation = null;
     let nearestStation = null;
-    let minDistance = Infinity;
+    let minDistanceMatched = Infinity;
+    let minDistanceNearest = Infinity;
 
     for (const station of stations) {
       const dist = haversineDistance(parseFloat(lat), parseFloat(lng), station.latitude, station.longitude);
-      if (dist < minDistance) {
-        minDistance = dist;
+      
+      // Track absolute nearest station
+      if (dist < minDistanceNearest) {
+        minDistanceNearest = dist;
         nearestStation = { ...station, distanceKm: parseFloat(dist.toFixed(2)) };
       }
-      if (dist <= station.radiusKm) {
+
+      // Track nearest station whose geofence actually contains the user (with 0.1km buffer)
+      if (dist <= (station.radiusKm + 0.1) && dist < minDistanceMatched) {
+        minDistanceMatched = dist;
         matchedStation = { ...station, distanceKm: parseFloat(dist.toFixed(2)) };
-        break;
       }
     }
 
