@@ -100,6 +100,7 @@ router.post('/submit', authenticateUser, async (req, res, next) => {
       locationAddress,
       legalConfirmed,
       isAnonymous = false,
+      evidenceIds = [],
     } = req.body;
 
     if (!legalConfirmed) {
@@ -241,6 +242,19 @@ router.post('/submit', authenticateUser, async (req, res, next) => {
           content: '⚠️ Emergency complaint flagged for immediate attention',
         },
       });
+    }
+
+    // Link any pre-uploaded evidence to this complaint
+    if (Array.isArray(evidenceIds) && evidenceIds.length > 0) {
+      await prisma.evidence.updateMany({
+        where: {
+          id: { in: evidenceIds },
+          uploaderId: req.user.id,
+          complaintId: null,
+        },
+        data: { complaintId: complaint.id },
+      });
+      logger.info(`[complaints] Linked ${evidenceIds.length} evidence record(s) to complaint ${complaint.id}`);
     }
 
     res.status(201).json({

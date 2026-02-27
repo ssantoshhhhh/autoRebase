@@ -73,6 +73,8 @@ export default function ComplaintPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTextChatEnabled, setIsTextChatEnabled] = useState(false);
   const [textInput, setTextInput] = useState("");
+  const [pendingEvidenceIds, setPendingEvidenceIds] = useState([]);
+  const lastAiDataRef = useRef(null);
 
   // ── Age-adaptive state ─────────────────────────────────────────────────
   const [isGreetingResponded, setIsGreetingResponded] = useState(false);
@@ -312,6 +314,7 @@ export default function ComplaintPage() {
     setIsSubmitting(true);
     try {
       const transcript = messages
+        .filter((m) => m.text && typeof m.text === "string")
         .map((m) => `${m.role === "ai" ? "REVA" : "USER"}: ${m.text}`)
         .join("\n");
 
@@ -325,11 +328,12 @@ export default function ComplaintPage() {
         legalConfirmed: true,
         structuredJson: {
           stationId: activeStation.id,
-          incidentType: aiData?.incidentType || "AI Assistant Report",
-          incidentLocation: aiData?.location || "Detected",
-          incidentDescription: aiData?.description || "See transcript",
-          incidentDateTime: aiData?.dateTime || new Date().toISOString(),
+          incidentType: aiData?.incidentType || lastAiDataRef.current?.incidentType || "AI Assistant Report",
+          incidentLocation: aiData?.location || lastAiDataRef.current?.location || "Detected",
+          incidentDescription: aiData?.description || lastAiDataRef.current?.description || "See transcript",
+          incidentDateTime: aiData?.dateTime || lastAiDataRef.current?.dateTime || new Date().toISOString(),
         },
+        evidenceIds: pendingEvidenceIds,
       });
 
       const { trackingId, station, priority, isEmergency } = response.data;
@@ -490,14 +494,15 @@ export default function ComplaintPage() {
 
       const aiResponseRaw = response.data.reply;
 
-      // Parse [[SUBMIT: {json}]] signal
+      // Parse [[SUBMIT: {json}]] signal — supports multiline JSON
       let aiText = aiResponseRaw;
       let aiData = null;
-      const submitMatch = aiResponseRaw.match(/\[\[SUBMIT:\s*(\{.*?\})\]\]/);
+      const submitMatch = aiResponseRaw.match(/\[\[SUBMIT:\s*([\s\S]*?)\]\]/);
 
       if (submitMatch) {
         try {
-          aiData = JSON.parse(submitMatch[1]);
+          aiData = JSON.parse(submitMatch[1].trim());
+          lastAiDataRef.current = aiData; // persist for manual button fallback
           aiText = aiResponseRaw.replace(submitMatch[0], "").trim();
         } catch (e) {
           console.error("Failed to parse AI submission data", e);
@@ -773,19 +778,26 @@ export default function ComplaintPage() {
     try {
       const formData = new FormData();
       formData.append("image", file);
+      if (user?.id) formData.append("uploaderId", user.id);
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
         { method: "POST", body: formData },
       );
       const result = await response.json();
       console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
-      setMessages((prev) =>
-        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
-      );
-      if (result.success && result.module1?.status === "completed") {
-        toast.success("Analysis complete — check server console for result.");
+
+      if (result.rejected || result.module1?.isAiGenerated) {
+        // Remove the bubble — AI-generated images are not accepted as evidence
+        setMessages((prev) => prev.filter((m) => m.id !== mediaId));
+        toast.error("🤖 AI-generated image detected. This evidence has been rejected.", { duration: 5000 });
       } else {
-        toast.error(result.module1?.error || "Analysis failed.");
+        setMessages((prev) => prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m));
+        if (result.evidenceId) setPendingEvidenceIds((prev) => [...prev, result.evidenceId]);
+        if (result.module1?.status === "completed") {
+          toast.success("Evidence uploaded and analysed.");
+        } else {
+          toast.error(result.module1?.error || "Analysis failed.");
+        }
       }
     } catch (err) {
       console.error("[Media Analysis Error]", err);
@@ -832,6 +844,7 @@ export default function ComplaintPage() {
     try {
       const formData = new FormData();
       formData.append("image", file);
+      if (user?.id) formData.append("uploaderId", user.id);
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
@@ -841,15 +854,20 @@ export default function ComplaintPage() {
 
       console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
 
-      // Mark image as done loading
-      setMessages((prev) =>
-        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
-      );
-
-      if (result.success && result.module1?.status === "completed") {
-        toast.success("Analysis complete — check server logs for full report.");
+      if (result.rejected || result.module1?.isAiGenerated) {
+        // AI-generated — remove the bubble and reject
+        setMessages((prev) => prev.filter((m) => m.id !== mediaId));
+        toast.error("🤖 AI-generated image detected. This evidence has been rejected.", { duration: 5000 });
       } else {
-        toast.error(result.module1?.error || "Analysis failed.");
+        setMessages((prev) =>
+          prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
+        );
+        if (result.evidenceId) setPendingEvidenceIds((prev) => [...prev, result.evidenceId]);
+        if (result.module1?.status === "completed") {
+          toast.success("Evidence uploaded and analysed.");
+        } else {
+          toast.error(result.module1?.error || "Analysis failed.");
+        }
       }
     } catch (err) {
       console.error("[Media Analysis Error]", err);
