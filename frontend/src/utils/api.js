@@ -9,7 +9,11 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('reva_token')
+    // Determine which token to use based on target URL
+    const isPoliceRoute = config.url.startsWith('/api/police');
+    const tokenKey = isPoliceRoute ? 'reva_police_token' : 'reva_token';
+    const token = localStorage.getItem(tokenKey);
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

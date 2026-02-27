@@ -11,7 +11,7 @@ const LANGUAGES = [
   { code: "ta", native: "தமிழ்" },
   { code: "te", native: "తెలుగు" },
   { code: "kn", native: "ಕನ್ನಡ" },
-  { code: "mr", native: "मराठी" },
+  { code: "mr", native: "ಮರಾठी" },
   { code: "bn", native: "বাংলা" },
   { code: "gu", native: "ગુજરાતી" },
 ];
@@ -29,7 +29,6 @@ export default function LoginPage() {
   const [otpCells, setOtpCells] = useState(["", "", "", "", "", ""]);
   const [verifiedDetails, setVerifiedDetails] = useState(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [name, setName] = useState(""); // User's name
 
   const navigate = useNavigate();
   const { loginCitizen, user, loading: authLoading } = useAuth();
@@ -65,15 +64,8 @@ export default function LoginPage() {
     }
   };
 
-  /**
-   * AADHAAR FLOW
-   */
   const sendAadhaarOtp = async () => {
     const digits = rawAadhaar();
-    if (!name.trim()) {
-      toast.error("Please enter your full name");
-      return;
-    }
     if (digits.length !== 12) {
       toast.error("Enter valid 12-digit Aadhaar");
       return;
@@ -103,7 +95,6 @@ export default function LoginPage() {
       const res = await api.post("/api/auth/verify-otp", {
         aadhaar: rawAadhaar(),
         otp: fullOtp,
-        name, // Send name if provided manually
         language,
       });
       loginCitizen(res.data.user, res.data.accessToken);
@@ -116,11 +107,7 @@ export default function LoginPage() {
     }
   };
 
-  /**
-   * PAN FLOW
-   */
   const getPanDetails = async () => {
-    if (!name.trim()) return toast.error("Please enter your name");
     if (pan.length !== 10) return toast.error("Enter valid 10-character PAN");
     setLoading(true);
     try {
@@ -173,7 +160,6 @@ export default function LoginPage() {
   };
 
   const sendOnlyMobileOtp = async () => {
-    if (!name.trim()) return toast.error("Please enter your full name");
     if (mobile.length !== 10)
       return toast.error("Enter valid 10-digit mobile number");
     setLoading(true);
@@ -192,13 +178,11 @@ export default function LoginPage() {
   const loginWithMobile = async () => {
     const fullOtp = otpCells.join("");
     if (fullOtp.length !== 6) return toast.error("Enter 6-digit OTP");
-    if (!name.trim()) return toast.error("Please enter your name");
     setLoading(true);
     try {
       const res = await api.post("/api/auth/mobile/login", {
         mobile,
         otp: fullOtp,
-        name,
         language,
       });
       loginCitizen(res.data.user, res.data.accessToken);
@@ -223,11 +207,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const reset = () => {
-    setStep("form");
-    setOtpCells(["", "", "", "", "", ""]);
   };
 
   return (
@@ -371,19 +350,6 @@ export default function LoginPage() {
                 >
                   Mobile
                 </button>
-              </div>
-
-              {/* Name Field (Global for all login types) */}
-              <div className="form-group" style={{ marginBottom: "20px" }}>
-                <label className="label">Full Name</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  style={{ textTransform: "capitalize" }}
-                />
               </div>
 
               {loginType === "aadhaar" ? (
@@ -668,6 +634,7 @@ export default function LoginPage() {
                   }}
                 />
               </div>
+
               <button
                 className="btn btn-ghost w-full"
                 onClick={continueAnonymous}
@@ -835,55 +802,12 @@ export default function LoginPage() {
               <button
                 className="btn btn-ghost w-full"
                 style={{ marginTop: "12px" }}
-                onClick={reset}
+                onClick={() => setStep("form")}
               >
-                ← Go Back
+                ← Back
               </button>
             </div>
           )}
-        </div>
-
-        <div style={{ marginTop: "32px", textAlign: "center" }}>
-          <p
-            style={{
-              color: "var(--clr-text-faint)",
-              fontSize: "0.8rem",
-              marginBottom: "12px",
-            }}
-          >
-            Access in your language
-          </p>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            {LANGUAGES.map((l) => (
-              <button
-                key={l.code}
-                onClick={() => setLanguage(l.code)}
-                style={{
-                  padding: "4px 12px",
-                  borderRadius: "20px",
-                  fontSize: "0.75rem",
-                  cursor: "pointer",
-                  background:
-                    language === l.code
-                      ? "var(--clr-primary)"
-                      : "var(--clr-surface-1)",
-                  color:
-                    language === l.code ? "white" : "var(--clr-text-muted)",
-                  border: "none",
-                  transition: "all 0.2s",
-                }}
-              >
-                {l.native}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

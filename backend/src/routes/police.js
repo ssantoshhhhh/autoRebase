@@ -11,7 +11,7 @@ router.use(authenticatePolice);
 
 // GET /api/police/dashboard
 // Station dashboard summary
-router.get('/dashboard', enforceStationScope, async (req, res, next) => {
+router.get('/dashboard', superAdminScope, async (req, res, next) => {
   try {
     const filter = req.stationFilter;
     
@@ -65,7 +65,7 @@ router.get('/dashboard', enforceStationScope, async (req, res, next) => {
 
 // GET /api/police/complaints
 // List complaints with filtering and pagination
-router.get('/complaints', enforceStationScope, async (req, res, next) => {
+router.get('/complaints', superAdminScope, async (req, res, next) => {
   try {
     const { 
       status, 
@@ -101,7 +101,7 @@ router.get('/complaints', enforceStationScope, async (req, res, next) => {
         include: {
           user: { select: { name: true, mobileNumber: true, isAnonymous: true } },
           assignedOfficer: { select: { name: true, email: true } },
-          evidence: { select: { id: true, fileType: true } },
+          evidence: { select: { id: true, mediaCategory: true } },
           _count: { select: { updates: true } },
         },
         orderBy: { [sortBy]: sortOrder },
@@ -127,7 +127,7 @@ router.get('/complaints', enforceStationScope, async (req, res, next) => {
 
 // GET /api/police/complaints/:id
 // Full complaint detail
-router.get('/complaints/:id', enforceStationScope, async (req, res, next) => {
+router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
   try {
     const complaint = await prisma.complaint.findFirst({
       where: {

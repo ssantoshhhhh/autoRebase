@@ -151,6 +151,8 @@ export default function PoliceDashboard() {
           <nav style={{ flex: 1 }}>
             {[
               { to: "/police/dashboard", icon: "📊", label: "Dashboard" },
+              { to: "/police/complaints", icon: "📁", label: "All Cases" },
+              { to: "/police/map", icon: "🗺️", label: "Crime Map" },
               { to: "/police/analytics", icon: "📈", label: "Analytics" },
               { to: "/police/officers", icon: "👥", label: "Officers" },
               ...(policeUser?.role === "GLOBAL_ADMIN"
@@ -776,12 +778,26 @@ export default function PoliceDashboard() {
                         >
                           {new Date(c.createdAt).toLocaleDateString("en-IN")}
                         </td>
-                        <td style={{ padding: "12px 16px" }}>
+                        <td
+                          style={{
+                            padding: "12px 16px",
+                            display: "flex",
+                            gap: "8px",
+                          }}
+                        >
                           <Link
                             to={`/police/complaints/${c.id}`}
                             className="btn btn-primary btn-sm"
+                            style={{ whiteSpace: "nowrap" }}
                           >
-                            View →
+                            Case File →
+                          </Link>
+                          <Link
+                            to={`/police/map?id=${c.id}`}
+                            className="btn btn-ghost btn-sm"
+                            title="View on Map"
+                          >
+                            📍
                           </Link>
                         </td>
                       </tr>

@@ -66,6 +66,8 @@ export default function ComplaintPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [tempName, setTempName] = useState("");
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
@@ -139,6 +141,36 @@ export default function ComplaintPage() {
   const [isSecureHandshakeComplete, setIsSecureHandshakeComplete] =
     useState(false);
   const [handshakeStep, setHandshakeStep] = useState(0);
+
+  useEffect(() => {
+    if (user && !user.name && !user.isAnonymous) {
+      setShowNameModal(true);
+    }
+  }, [user]);
+
+  const handleSaveName = async () => {
+    if (!tempName.trim()) return toast.error("Please enter your name");
+    try {
+      await api.put("/api/auth/profile", { name: tempName });
+      user.name = tempName;
+      setShowNameModal(false);
+      toast.success("Name updated successfully");
+
+      // Update the first message to include the name
+      setMessages((prev) =>
+        prev.map((msg, i) =>
+          i === 0
+            ? {
+                ...msg,
+                text: `Hello ${tempName}! I'm REVA, your AI Police Assistant. How can I help you today?`,
+              }
+            : msg,
+        ),
+      );
+    } catch (err) {
+      toast.error("Failed to update name");
+    }
+  };
 
   useEffect(() => {
     const steps = [
@@ -1181,22 +1213,16 @@ export default function ComplaintPage() {
 
         <button
           onClick={() => {
-            cancelSpeech();
-            stopSTT();
+            if (!user?.name && !user?.isAnonymous) {
+              setShowNameModal(true);
+              return;
+            }
+            if (isListening) stopSTT();
+            else {
+              resetTranscript();
+              startSTT();
+            }
           }}
-          style={{
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.6)",
-            cursor: "pointer",
-            padding: "8px",
-          }}
-        >
-          <Square size={22} />
-        </button>
-
-        <button
-          onClick={handleToggleListening}
           disabled={isInitializing || isSpeaking || isImageUploading}
           style={{
             width: "64px",
@@ -1650,6 +1676,77 @@ export default function ComplaintPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Name Required Modal */}
+      {showNameModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            backgroundColor: "rgba(0,0,0,0.85)",
+            backdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: "400px",
+              width: "100%",
+              padding: "32px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                background: "var(--grad-primary)",
+                borderRadius: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "32px",
+                margin: "0 auto 24px",
+              }}
+            >
+              👤
+            </div>
+            <h2 style={{ marginBottom: "12px" }}>Identify Yourself</h2>
+            <p
+              style={{
+                color: "var(--clr-text-muted)",
+                marginBottom: "24px",
+                fontSize: "0.9rem",
+              }}
+            >
+              To ensure legal validity of your statements, please enter your
+              full name as per official records.
+            </p>
+            <div className="form-group" style={{ textAlign: "left" }}>
+              <label className="label">Full Name</label>
+              <input
+                type="text"
+                className="input"
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                placeholder="Enter your full name"
+                autoFocus
+              />
+            </div>
+            <button
+              className="btn btn-primary w-full"
+              style={{ marginTop: "24px", height: "50px" }}
+              onClick={handleSaveName}
+            >
+              Confirm Identity →
+            </button>
           </div>
         </div>
       )}
