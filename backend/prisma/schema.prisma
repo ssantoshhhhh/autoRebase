@@ -3,9 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -234,8 +234,8 @@ model Evidence {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   // ── Relations ──────────────────────────────────────────────────────────────
-  complaint Complaint @relation("ComplaintEvidence", fields: [complaintId], references: [id])
-  uploader  User      @relation("UploaderEvidence", fields: [uploaderId], references: [id])
+  complaint     Complaint      @relation("ComplaintEvidence", fields: [complaintId], references: [id])
+  uploader      User           @relation("UploaderEvidence", fields: [uploaderId], references: [id])
 
   // ── Indexes ────────────────────────────────────────────────────────────────
   @@index([complaintId]) // fetch all evidence for a complaint
@@ -246,6 +246,8 @@ model Evidence {
   @@index([isDeleted])
   @@map("evidence")
 }
+
+
 
 // ─── Supporting Models ────────────────────────────────────────────────────────
 
