@@ -155,6 +155,7 @@ export default function PoliceDashboard() {
               { to: "/police/map", icon: "🗺️", label: "Crime Map" },
               { to: "/police/analytics", icon: "📈", label: "Analytics" },
               { to: "/police/officers", icon: "👥", label: "Officers" },
+              { to: "/police/linked-complaints", icon: "🔗", label: "Joint Complaints" },
               ...(policeUser?.role === "GLOBAL_ADMIN"
                 ? [{ to: "/police/stations", icon: "🏢", label: "Stations" }]
                 : []),

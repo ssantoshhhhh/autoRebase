@@ -4,6 +4,7 @@ const express = require('express');
 const multer = require('multer');
 const { runImageAnalysis } = require('../services/imageAnalysisService');
 const { uploadToS3 } = require('../services/s3Service');
+const { computePHash, runSimilarityCheck } = require('../services/evidenceMatchingService');
 const { logger } = require('../utils/logger');
 const { prisma } = require('../utils/prisma');
 
@@ -154,6 +155,9 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
             const forensic = result.forensicAnalysis || {};
             const analysisObj = forensic.analysis || {};
 
+            // Compute perceptual hash for this image
+            const pHash = await computePHash(req.file.buffer);
+
             evidenceRecord = await prisma.evidence.create({
                 data: {
                     complaintId: complaintId || null,
@@ -168,6 +172,8 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
                     s3Region: s3Data?.s3Region ?? null,
                     cdnUrl: s3Data?.cdnUrl ?? null,
                     hashChecksum: s3Data?.hashChecksum ?? null,
+                    // Perceptual hash
+                    pHash: pHash ?? null,
                     // AI detection
                     isAiGenerated: false,
                     aiConfidence: result.confidence ?? null,
@@ -182,7 +188,10 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
                 },
             });
 
-            logger.info(`[imageAnalysis] Evidence saved. ID: ${evidenceRecord.id} | S3: ${s3Data?.s3Key || 'none'} | Risk: ${analysisObj.riskLevel || 'N/A'}`);
+            logger.info(`[imageAnalysis] Evidence saved. ID: ${evidenceRecord.id} | S3: ${s3Data?.s3Key || 'none'} | Risk: ${analysisObj.riskLevel || 'N/A'} | pHash: ${pHash || 'none'}`);
+
+            // Fire-and-forget similarity check (non-blocking)
+            runSimilarityCheck(evidenceRecord.id, req.file.buffer).catch(() => {});
         } else {
             logger.info('[imageAnalysis] No uploaderId provided — skipping DB save.');
         }

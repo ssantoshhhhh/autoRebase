@@ -7,6 +7,7 @@ const { authenticateUser } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
 const { logger } = require('../utils/logger');
 const { sendSMS } = require('../services/smsService');
+const { linkComplaintsForEvidence } = require('../services/evidenceMatchingService');
 
 // POST /api/complaints/start-session
 // Initiates an AI complaint intake conversation
@@ -255,6 +256,9 @@ router.post('/submit', authenticateUser, async (req, res, next) => {
         data: { complaintId: complaint.id },
       });
       logger.info(`[complaints] Linked ${evidenceIds.length} evidence record(s) to complaint ${complaint.id}`);
+
+      // Fire-and-forget: link any complaints with matching evidence (police intelligence only)
+      linkComplaintsForEvidence(evidenceIds).catch(() => {});
     }
 
     res.status(201).json({
