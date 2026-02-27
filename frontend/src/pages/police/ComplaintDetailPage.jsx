@@ -45,21 +45,50 @@ export default function ComplaintDetailPage() {
   }, [id]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const [cRes, oRes, sRes] = await Promise.all([
-        api.get(`/api/police/complaints/${id}`, { headers }),
-        ["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role)
-          ? api.get("/api/police/officers", { headers })
-          : Promise.resolve({ data: { officers: [] } }),
-        api.get("/api/stations"),
-      ]);
+      // Fetch complaint first as it's critical
+      const cRes = await api.get(`/api/police/complaints/${id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("reva_police_token")}`,
+        },
+      });
       setComplaint(cRes.data);
-      setOfficers(oRes.data.officers || []);
-      setStations(sRes.data.stations || []);
       setSelectedStatus(cRes.data.status);
+
+      // Fetch other data secondary
+      try {
+        if (["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role)) {
+          const oRes = await api.get("/api/police/officers", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("reva_police_token")}`,
+            },
+          });
+          setOfficers(oRes.data.officers || []);
+        }
+      } catch (e) {
+        console.warn("Failed to load officers", e);
+      }
+
+      try {
+        const sRes = await api.get("/api/stations");
+        setStations(sRes.data.stations || []);
+      } catch (e) {
+        console.warn("Failed to load stations", e);
+      }
     } catch (err) {
-      toast.error("Complaint not found or access denied");
-      navigate("/police/dashboard");
+      const errorMsg =
+        err.response?.data?.error || "Failed to load complaint details";
+      toast.error(errorMsg);
+      console.error("Fetch Error:", err.response?.data || err.message);
+
+      // Don't navigate away immediately if it's an auth error we want to see
+      if (err.response?.status === 401) {
+        navigate("/police/login");
+      } else if (err.response?.status === 404) {
+        // Only navigate back if it's truly missing
+        setTimeout(() => navigate("/police/dashboard"), 3000);
+      }
     } finally {
       setLoading(false);
     }
@@ -132,6 +161,45 @@ export default function ComplaintDetailPage() {
     }
   };
 
+  const handlePrint = () => {
+    const printContent = document.getElementById("print-root");
+    if (!printContent) return;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>FIR Report - ${complaint.trackingId}</title>
+          <style>
+            body { 
+              font-family: "Times New Roman", Times, serif; 
+              padding: 40px; 
+              color: #000; 
+              background: #fff; 
+              line-height: 1.5;
+            }
+            .card { background: #fff !important; }
+            h2 { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 15px; }
+            .no-print { display: none !important; }
+            .badge, .btn { display: none !important; }
+            @page { margin: 2cm; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    // Small delay to ensure styles and images (if any) are considered
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
   if (loading)
     return (
       <div
@@ -165,6 +233,7 @@ export default function ComplaintDetailPage() {
     <div style={{ minHeight: "100vh", background: "var(--clr-bg)" }}>
       {/* Header */}
       <div
+        className="no-print"
         style={{
           background: "rgba(8,12,20,0.9)",
           backdropFilter: "blur(12px)",
@@ -261,6 +330,7 @@ export default function ComplaintDetailPage() {
         <div>
           {/* Tabs */}
           <div
+            className="no-print"
             style={{
               display: "flex",
               gap: "0",
@@ -309,7 +379,7 @@ export default function ComplaintDetailPage() {
             >
               {/* SECTION 1: TRANSCRIPT */}
               <div
-                className="card"
+                className="card no-print"
                 style={{ border: "1px solid var(--clr-border-hover)" }}
               >
                 <div
@@ -392,13 +462,30 @@ export default function ComplaintDetailPage() {
                               fontWeight: 700,
                               marginRight: "8px",
                               fontSize: "0.75rem",
+                              display: "block",
+                              marginBottom: "4px",
                             }}
                           >
                             {line.split(":")[0]}:
                           </span>
-                          <span style={{ color: "var(--clr-text)" }}>
-                            {line.split(":").slice(1).join(":")}
-                          </span>
+                          <div
+                            style={{
+                              color: "var(--clr-text)",
+                              paddingLeft: "4px",
+                            }}
+                          >
+                            {line
+                              .split(":")
+                              .slice(1)
+                              .join(":")
+                              .split(/(?<=[.!?])\s+/)
+                              .filter((s) => s.trim())
+                              .map((sentence, idx) => (
+                                <div key={idx} style={{ marginBottom: "6px" }}>
+                                  {sentence}
+                                </div>
+                              ))}
+                          </div>
                         </div>
                       );
                     })
@@ -418,7 +505,8 @@ export default function ComplaintDetailPage() {
 
               {/* SECTION 2: FORMAL FIR REPORT */}
               <div
-                className="card"
+                id="print-root"
+                className="card printable-area"
                 style={{
                   background: "#fff",
                   color: "#1a1a1a",
@@ -558,7 +646,16 @@ export default function ComplaintDetailPage() {
                       lineHeight: 1.6,
                     }}
                   >
-                    {complaint.summaryText || "Extracted summary pending..."}
+                    {complaint.summaryText
+                      ? complaint.summaryText
+                          .split(/(?<=[.!?])\s+/)
+                          .filter((s) => s.trim())
+                          .map((sentence, idx) => (
+                            <div key={idx} style={{ marginBottom: "8px" }}>
+                              {sentence}
+                            </div>
+                          ))
+                      : "Extracted summary pending..."}
                   </div>
                 </div>
 
@@ -637,10 +734,7 @@ export default function ComplaintDetailPage() {
                 </div>
 
                 <div style={{ textAlign: "center", marginTop: "30px" }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => window.print()}
-                  >
+                  <button className="btn btn-primary" onClick={handlePrint}>
                     🖨️ Print Final FIR
                   </button>
                 </div>
@@ -649,7 +743,7 @@ export default function ComplaintDetailPage() {
           )}
 
           {activeView === "extraction" && (
-            <div className="card animate-fade-in">
+            <div className="card animate-fade-in no-print">
               <h4 style={{ marginBottom: "16px", fontSize: "0.95rem" }}>
                 AI Forensic JSON Extraction
               </h4>
@@ -723,7 +817,7 @@ export default function ComplaintDetailPage() {
           )}
 
           {activeView === "timeline" && (
-            <div className="card">
+            <div className="card no-print">
               <h4 style={{ marginBottom: "16px", fontSize: "0.95rem" }}>
                 Activity Timeline
               </h4>
@@ -803,7 +897,7 @@ export default function ComplaintDetailPage() {
           )}
 
           {/* Add Note */}
-          <div className="card" style={{ marginTop: "16px" }}>
+          <div className="card no-print" style={{ marginTop: "16px" }}>
             <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
               Add Internal Note
             </h4>
@@ -827,7 +921,10 @@ export default function ComplaintDetailPage() {
         </div>
 
         {/* Right panel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div
+          className="no-print"
+          style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+        >
           {/* Complaint Info */}
           <div className="card">
             <h4 style={{ marginBottom: "16px", fontSize: "0.95rem" }}>

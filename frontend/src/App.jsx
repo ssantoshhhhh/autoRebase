@@ -19,7 +19,7 @@ import AnalyticsPage from "./pages/police/AnalyticsPage";
 import StationManagement from "./pages/police/StationManagement";
 import CrimeMap from "./pages/police/CrimeMap";
 import ComplaintsListPage from "./pages/police/ComplaintsListPage";
-import LinkedComplaintsPage from "./pages/police/LinkedComplaintsPage";
+import SimpleCaseFile from "./pages/police/SimpleCaseFile";
 
 function CitizenRoute({ children }) {
   const { user, loading } = useAuth();
@@ -56,7 +56,12 @@ function LoadingScreen() {
             margin: "0 auto 16px",
           }}
         />
-        <p style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-sans)" }}>
+        <p
+          style={{
+            color: "var(--clr-text-muted)",
+            fontFamily: "var(--font-sans)",
+          }}
+        >
           Loading REVA AI...
         </p>
       </div>
@@ -167,6 +172,14 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/police/view/:id"
+        element={
+          <PoliceRoute>
+            <SimpleCaseFile />
+          </PoliceRoute>
+        }
+      />
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
