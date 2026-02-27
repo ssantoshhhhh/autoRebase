@@ -582,6 +582,44 @@ export default function ComplaintPage() {
         <div className="ai-orb-core"></div>
       </div>
 
+      {/* ── Floating Back Button ── always visible top-left */}
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          position: "fixed",
+          top: "18px",
+          left: "20px",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "linear-gradient(135deg, rgba(139,92,246,0.55), rgba(37,99,235,0.45))",
+          border: "1px solid rgba(167,139,250,0.6)",
+          color: "#f3f0ff",
+          cursor: "pointer",
+          padding: "9px 18px",
+          borderRadius: "14px",
+          fontSize: "13px",
+          fontWeight: "800",
+          letterSpacing: "0.4px",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 4px 20px rgba(139,92,246,0.35)",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.8), rgba(37,99,235,0.7))";
+          e.currentTarget.style.boxShadow = "0 6px 28px rgba(139,92,246,0.55)";
+          e.currentTarget.style.transform = "translateX(-3px)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.55), rgba(37,99,235,0.45))";
+          e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.35)";
+          e.currentTarget.style.transform = "translateX(0)";
+        }}
+      >
+        &#8592; Back
+      </button>
+
       {/* Header */}
       <header
         style={{
@@ -597,6 +635,48 @@ export default function ComplaintPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(37,99,235,0.18))",
+              border: "1px solid rgba(139,92,246,0.45)",
+              color: "#c4b5fd",
+              cursor: "pointer",
+              padding: "7px 14px",
+              borderRadius: "12px",
+              fontSize: "12px",
+              fontWeight: "700",
+              letterSpacing: "0.5px",
+              backdropFilter: "blur(8px)",
+              boxShadow: "0 2px 12px rgba(139,92,246,0.2)",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.35), rgba(37,99,235,0.3))";
+              e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.4)";
+              e.currentTarget.style.transform = "translateX(-2px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(37,99,235,0.18))";
+              e.currentTarget.style.boxShadow = "0 2px 12px rgba(139,92,246,0.2)";
+              e.currentTarget.style.transform = "translateX(0)";
+            }}
+          >
+            <span style={{
+              fontSize: "18px",
+              fontWeight: "900",
+              lineHeight: 1,
+              color: "#a78bfa",
+              marginRight: "2px",
+              display: "inline-block",
+            }}>&#8592;</span>
+            Back
+          </button>
+
           <div
             style={{
               width: "40px",

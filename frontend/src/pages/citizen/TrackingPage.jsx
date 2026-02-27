@@ -15,6 +15,7 @@ const STATUS_COLORS = {
 
 export default function TrackingPage() {
   const { trackingId: paramId } = useParams();
+  const navigate = useNavigate();
   const [trackingId, setTrackingId] = useState(paramId || "");
   const [complaint, setComplaint] = useState(null);
   const [loading, setLoading] = useState(!!paramId);
@@ -48,6 +49,43 @@ export default function TrackingPage() {
         padding: "24px",
       }}
     >
+      {/* Floating Back Button */}
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          position: "fixed",
+          top: "18px",
+          left: "20px",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "linear-gradient(135deg, rgba(139,92,246,0.55), rgba(37,99,235,0.45))",
+          border: "1px solid rgba(167,139,250,0.6)",
+          color: "#f3f0ff",
+          cursor: "pointer",
+          padding: "9px 18px",
+          borderRadius: "14px",
+          fontSize: "13px",
+          fontWeight: "800",
+          letterSpacing: "0.4px",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 4px 20px rgba(139,92,246,0.35)",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.8), rgba(37,99,235,0.7))";
+          e.currentTarget.style.boxShadow = "0 6px 28px rgba(139,92,246,0.55)";
+          e.currentTarget.style.transform = "translateX(-3px)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.55), rgba(37,99,235,0.45))";
+          e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.35)";
+          e.currentTarget.style.transform = "translateX(0)";
+        }}
+      >
+        &#8592; Back
+      </button>
       <div style={{ maxWidth: "640px", margin: "0 auto" }}>
         <h1 style={{ marginBottom: "8px", fontSize: "1.75rem" }}>
           Track Complaint
