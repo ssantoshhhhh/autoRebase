@@ -260,6 +260,64 @@ router.patch('/complaints/:id/status', enforceStationScope, async (req, res, nex
   }
 });
 
+// PATCH /api/police/complaints/:id/migrate
+// Transfers complaint to another jurisdiction
+router.patch('/complaints/:id/migrate', 
+  requireRole('STATION_ADMIN', 'SUPER_ADMIN', 'GLOBAL_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { targetStationId, reason } = req.body;
+      
+      if (!targetStationId) throw new AppError('Target station ID required', 400, 'STATION_REQUIRED');
+
+      const complaint = await prisma.complaint.findUnique({
+        where: { id: req.params.id },
+        include: { station: true }
+      });
+
+      if (!complaint) throw new AppError('Complaint not found', 404, 'NOT_FOUND');
+
+      // Authorization check: Only superadmins or admins of the CURRENT station can migrate
+      if (req.policeUser.role === 'STATION_ADMIN' && complaint.stationId !== req.stationId) {
+        throw new AppError('Unauthorized to migrate complaints from other stations', 403, 'FORBIDDEN');
+      }
+
+      const targetStation = await prisma.policeStation.findUnique({
+        where: { id: targetStationId }
+      });
+      if (!targetStation) throw new AppError('Target station not found', 404, 'TARGET_NOT_FOUND');
+
+      const updated = await prisma.complaint.update({
+        where: { id: req.params.id },
+        data: { 
+          stationId: targetStationId,
+          assignedOfficerId: null, // Reset assignment on migration
+        },
+      });
+
+      await prisma.complaintUpdate.create({
+        data: {
+          complaintId: req.params.id,
+          updatedBy: req.policeUser.id,
+          updateType: 'STATUS_CHANGE',
+          content: `JURISDICTION MIGRATION: Transferred from ${complaint.station.stationName} to ${targetStation.stationName}. Reason: ${reason || 'Administrative reassignment'}`,
+        },
+      });
+
+      // Notify citizen
+      const citizen = await prisma.user.findUnique({ where: { id: complaint.userId } });
+      if (citizen && citizen.mobileNumber) {
+        const smsBody = `REVA ALERT: Your complaint ${complaint.trackingId} has been transferred to ${targetStation.stationName} for further investigation.`;
+        sendSMS(citizen.mobileNumber, smsBody).catch(e => logger.error('Migration SMS failed:', e));
+      }
+
+      res.json({ message: 'Complaint migrated successfully', complaint: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // POST /api/police/complaints/:id/notes
 router.post('/complaints/:id/notes', enforceStationScope, async (req, res, next) => {
   try {

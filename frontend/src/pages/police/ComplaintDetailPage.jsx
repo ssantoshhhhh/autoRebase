@@ -32,6 +32,10 @@ export default function ComplaintDetailPage() {
   const [selectedOfficer, setSelectedOfficer] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [activeView, setActiveView] = useState("case_file");
+  const [stations, setStations] = useState([]);
+  const [selectedTargetStation, setSelectedTargetStation] = useState("");
+  const [migrationReason, setMigrationReason] = useState("");
+  const [isMigrating, setIsMigrating] = useState(false);
 
   const token = localStorage.getItem("reva_police_token");
   const headers = { Authorization: `Bearer ${token}` };
@@ -42,14 +46,16 @@ export default function ComplaintDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [cRes, oRes] = await Promise.all([
+      const [cRes, oRes, sRes] = await Promise.all([
         api.get(`/api/police/complaints/${id}`, { headers }),
         ["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role)
           ? api.get("/api/police/officers", { headers })
           : Promise.resolve({ data: { officers: [] } }),
+        api.get("/api/stations"),
       ]);
       setComplaint(cRes.data);
       setOfficers(oRes.data.officers || []);
+      setStations(sRes.data.stations || []);
       setSelectedStatus(cRes.data.status);
     } catch (err) {
       toast.error("Complaint not found or access denied");
@@ -105,6 +111,24 @@ export default function ComplaintDetailPage() {
       toast.error("Failed to add note");
     } finally {
       setSubmittingNote(false);
+    }
+  };
+
+  const handleMigrate = async () => {
+    if (!selectedTargetStation) return toast.error("Select target station");
+    setIsMigrating(true);
+    try {
+      await api.patch(
+        `/api/police/complaints/${id}/migrate`,
+        { targetStationId: selectedTargetStation, reason: migrationReason },
+        { headers },
+      );
+      toast.success("Complaint migrated and transferred");
+      navigate("/police/dashboard");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Migration failed");
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -925,6 +949,77 @@ export default function ComplaintDetailPage() {
                 </button>
               </div>
             )}
+
+          {/* Jurisdiction Transfer (Migration) */}
+          {["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role) && (
+            <div
+              className="card"
+              style={{ border: "1px solid rgba(139, 92, 246, 0.2)" }}
+            >
+              <h4
+                style={{
+                  marginBottom: "12px",
+                  fontSize: "0.95rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <span style={{ color: "var(--clr-primary)" }}>⇄</span>{" "}
+                Jurisdiction Transfer
+              </h4>
+              <p
+                style={{
+                  fontSize: "0.78rem",
+                  color: "var(--clr-text-muted)",
+                  marginBottom: "12px",
+                }}
+              >
+                Transfer this case to another police station if it falls outside
+                current jurisdiction.
+              </p>
+
+              <div style={{ display: "grid", gap: "10px" }}>
+                <select
+                  className="input sm"
+                  value={selectedTargetStation}
+                  onChange={(e) => setSelectedTargetStation(e.target.value)}
+                  style={{ fontSize: "0.85rem" }}
+                >
+                  <option value="">Select Target Station</option>
+                  {stations
+                    .filter((s) => s.id !== complaint.stationId)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.stationName} ({s.district})
+                      </option>
+                    ))}
+                </select>
+
+                <input
+                  type="text"
+                  className="input sm"
+                  placeholder="Reason for transfer..."
+                  value={migrationReason}
+                  onChange={(e) => setMigrationReason(e.target.value)}
+                  style={{ fontSize: "0.85rem" }}
+                />
+
+                <button
+                  className="btn btn-ghost btn-sm w-full"
+                  style={{
+                    borderColor: "var(--clr-primary)",
+                    color: "var(--clr-primary-light)",
+                    marginTop: "4px",
+                  }}
+                  onClick={handleMigrate}
+                  disabled={!selectedTargetStation || isMigrating}
+                >
+                  {isMigrating ? "Processing..." : "Transfer Case →"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Evidence */}
           {complaint.evidence?.length > 0 && (
