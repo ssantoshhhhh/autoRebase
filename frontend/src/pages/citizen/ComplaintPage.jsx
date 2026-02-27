@@ -84,6 +84,9 @@ export default function ComplaintPage() {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedText, setEditedText] = useState("");
 
+  // ── Age message tracking ─────────────────────────────────────────────
+  const ageMessageIdRef = useRef(null);
+
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
   const imageFileRef = useRef(null);
@@ -131,6 +134,24 @@ export default function ComplaintPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   useEffect(scrollToBottom, [messages, interimTranscript, isLoading]);
+
+  // ── Refresh / tab-close guard ───────────────────────────────────────────
+  // Always warn when leaving the complaint page — browser dialog on F5/Ctrl-R/close
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "Your complaint session will be lost. Are you sure you want to leave?";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // ── Custom back-navigation confirmation modal state ─────────────────────
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const handleBackClick = () => setShowLeaveModal(true);
+  const confirmLeave = () => { setShowLeaveModal(false); navigate(-1); };
+  const cancelLeave = () => setShowLeaveModal(false);
 
   // Auto-enable mic after AI finishes speaking (Hands-free mode)
   const prevSpeakingRef = useRef(false);
@@ -281,8 +302,36 @@ export default function ComplaintPage() {
         },
       });
 
-      toast.success("Complaint filed successfully!");
-      navigate(`/citizen/my-complaints`);
+      const { trackingId, station, priority, isEmergency } = response.data;
+
+      // Build a summary by parsing user messages from the conversation
+      const userTexts = messages
+        .filter((m) => m.role === "user" && !m.type)
+        .map((m) => m.text)
+        .join(" | ");
+
+      // Add the complaint receipt as a special AI message bubble
+      const receiptMsg = {
+        id: (Date.now() + 2).toString(),
+        role: "ai",
+        type: "receipt",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        receipt: {
+          trackingId,
+          station: station || activeStation?.stationName,
+          district: activeStation?.district,
+          priority,
+          isEmergency,
+          incidentType: aiData?.incidentType || "AI Assistant Report",
+          location: aiData?.location || activeStation ? `${activeStation.stationName}, ${activeStation.district}` : "Detected",
+          description: aiData?.description || userTexts.slice(0, 200),
+          dateTime: aiData?.dateTime || new Date().toISOString(),
+          filedAt: new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }),
+        },
+      };
+
+      setMessages((prev) => [...prev, receiptMsg]);
+      toast.success("Complaint filed! Your tracking ID is " + trackingId);
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
@@ -366,6 +415,7 @@ export default function ComplaintPage() {
       setUserAge(age);
       setUserCategory(category);
       setIsAgeCollected(true);
+      ageMessageIdRef.current = userMsg.id; // remember which message contained the age
 
       const confirmations = {
         child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
@@ -503,6 +553,21 @@ export default function ComplaintPage() {
     const trimmed = editedText.trim();
     if (!trimmed) return;
 
+    // If the user edited their age message, re-detect the age from the new text
+    let effectiveAge = userAge;
+    let effectiveCategory = userCategory;
+    if (msgId === ageMessageIdRef.current) {
+      const ageMatch = trimmed.match(/\d+/);
+      const parsedAge = ageMatch ? parseInt(ageMatch[0], 10) : null;
+      if (parsedAge && parsedAge >= 1 && parsedAge <= 120) {
+        const newCategory = parsedAge < 18 ? "child" : parsedAge <= 60 ? "adult" : "senior";
+        effectiveAge = parsedAge;
+        effectiveCategory = newCategory;
+        setUserAge(parsedAge);
+        setUserCategory(newCategory);
+      }
+    }
+
     // 1. Update the user message in-place
     setMessages((prev) =>
       prev.map((m) => (m.id === msgId ? { ...m, text: trimmed } : m))
@@ -532,8 +597,8 @@ export default function ComplaintPage() {
           ? `${user.policeStation.stationName}, ${user.policeStation.district}`
           : "Unknown",
         history: history.slice(-5),
-        userAge,
-        userCategory,
+        userAge: effectiveAge,
+        userCategory: effectiveCategory,
       };
 
       const response = await api.post("/api/chat", {
@@ -880,7 +945,7 @@ export default function ComplaintPage() {
 
       {/* ── Floating Back Button ── always visible top-left */}
       <button
-        onClick={() => navigate(-1)}
+        onClick={handleBackClick}
         style={{
           position: "fixed",
           top: "18px",
@@ -933,7 +998,7 @@ export default function ComplaintPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {/* Back Button */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleBackClick}
             style={{
               display: "flex",
               alignItems: "center",
@@ -1345,6 +1410,145 @@ export default function ComplaintPage() {
                     <span>
                       Analysis failed: {msg.errorMsg || "Unknown error"}
                     </span>
+                  </div>
+                )}
+
+                {/* --- Complaint Receipt Bubble --- */}
+                {msg.type === "receipt" && msg.receipt && (
+                  <div
+                    style={{
+                      maxWidth: "360px",
+                      borderRadius: "20px 20px 20px 4px",
+                      overflow: "hidden",
+                      border: "1px solid rgba(16,185,129,0.4)",
+                      boxShadow: "0 0 28px rgba(16,185,129,0.15)",
+                    }}
+                  >
+                    {/* Header */}
+                    <div
+                      style={{
+                        background: "linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.2))",
+                        borderBottom: "1px solid rgba(16,185,129,0.25)",
+                        padding: "14px 16px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "32px", height: "32px", borderRadius: "50%",
+                          background: "rgba(16,185,129,0.2)",
+                          border: "2px solid #10b981",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "15px", flexShrink: 0,
+                        }}
+                      >✓</div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#34d399", letterSpacing: "0.3px" }}>
+                          Complaint Filed Successfully
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.45)", marginTop: "1px" }}>
+                          {msg.receipt.filedAt}
+                        </div>
+                      </div>
+                      {msg.receipt.isEmergency && (
+                        <div style={{
+                          marginLeft: "auto", background: "rgba(239,68,68,0.2)",
+                          border: "1px solid #ef4444", borderRadius: "8px",
+                          padding: "2px 8px", fontSize: "9px", fontWeight: 800,
+                          color: "#f87171", letterSpacing: "1px",
+                        }}>EMERGENCY</div>
+                      )}
+                    </div>
+
+                    {/* Tracking ID */}
+                    <div
+                      style={{
+                        background: "rgba(0,0,0,0.3)",
+                        padding: "14px 16px",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.65rem", color: "rgba(167,139,250,0.7)", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: "6px" }}>
+                        Your Tracking ID
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{
+                          fontFamily: "monospace", fontWeight: 800, fontSize: "1.05rem",
+                          color: "#a78bfa", letterSpacing: "1px",
+                        }}>
+                          {msg.receipt.trackingId}
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(msg.receipt.trackingId);
+                            toast.success("Tracking ID copied!");
+                          }}
+                          title="Copy"
+                          style={{
+                            background: "rgba(139,92,246,0.2)",
+                            border: "1px solid rgba(139,92,246,0.4)",
+                            borderRadius: "6px", color: "#c4b5fd",
+                            cursor: "pointer", padding: "3px 8px",
+                            fontSize: "10px", fontWeight: 700,
+                          }}
+                        >Copy</button>
+                      </div>
+                    </div>
+
+                    {/* Details grid */}
+                    <div style={{ padding: "12px 16px", display: "grid", gap: "8px", background: "rgba(15,23,42,0.5)" }}>
+                      {[
+                        { label: "Incident Type", value: msg.receipt.incidentType },
+                        { label: "Station", value: msg.receipt.station },
+                        { label: "District", value: msg.receipt.district },
+                        { label: "Location", value: msg.receipt.location },
+                        { label: "Priority", value: msg.receipt.priority },
+                      ].filter(r => r.value).map((row, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", fontSize: "0.78rem" }}>
+                          <span style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }}>{row.label}</span>
+                          <span style={{ color: "rgba(255,255,255,0.85)", fontWeight: 600, textAlign: "right", wordBreak: "break-word" }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div
+                      style={{
+                        padding: "12px 16px",
+                        background: "rgba(0,0,0,0.2)",
+                        display: "flex", gap: "8px",
+                        borderTop: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    >
+                      <button
+                        onClick={() => navigate(`/track/${msg.receipt.trackingId}`)}
+                        style={{
+                          flex: 1,
+                          background: "linear-gradient(135deg, #7c3aed, #2563eb)",
+                          border: "none", borderRadius: "10px",
+                          color: "white", cursor: "pointer",
+                          padding: "9px 12px", fontSize: "12px", fontWeight: 800,
+                          letterSpacing: "0.5px",
+                          boxShadow: "0 4px 14px rgba(124,58,237,0.35)",
+                        }}
+                      >
+                        Track Complaint →
+                      </button>
+                      <button
+                        onClick={() => navigate("/citizen/my-complaints")}
+                        style={{
+                          background: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          borderRadius: "10px", color: "rgba(255,255,255,0.7)",
+                          cursor: "pointer", padding: "9px 14px",
+                          fontSize: "12px", fontWeight: 700,
+                        }}
+                      >
+                        My Cases
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -2266,6 +2470,62 @@ export default function ComplaintPage() {
     </div>
 
       {/* ── In-browser Camera Modal ─────────────────────────────────────── */}
+      {/* ── Leave Confirmation Modal ───────────────────────── */}
+      {showLeaveModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(6px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "24px",
+        }}>
+          <div style={{
+            background: "#111827",
+            border: "1px solid rgba(239,68,68,0.35)",
+            borderRadius: "20px",
+            padding: "32px 28px",
+            maxWidth: "380px",
+            width: "100%",
+            textAlign: "center",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>⚠️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: "1.15rem", color: "#f3f4f6" }}>
+              Leave complaint session?
+            </h3>
+            <p style={{ margin: "0 0 24px", fontSize: "0.85rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+              Your conversation will be lost and cannot be recovered. Are you sure you want to go back?
+            </p>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={cancelLeave}
+                style={{
+                  flex: 1, padding: "12px",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "12px", color: "white",
+                  fontWeight: "600", cursor: "pointer", fontSize: "0.9rem",
+                }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={confirmLeave}
+                style={{
+                  flex: 1, padding: "12px",
+                  background: "rgba(239,68,68,0.85)",
+                  border: "1px solid rgba(239,68,68,0.5)",
+                  borderRadius: "12px", color: "white",
+                  fontWeight: "700", cursor: "pointer", fontSize: "0.9rem",
+                }}
+              >
+                Yes, Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCameraModal && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999,

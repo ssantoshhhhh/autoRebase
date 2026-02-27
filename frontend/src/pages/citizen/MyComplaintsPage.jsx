@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../utils/api";
 
@@ -13,6 +14,7 @@ const PRIORITY_STYLES = {
 export default function MyComplaintsPage() {
   const navigate = useNavigate();
   const { user, logoutCitizen } = useAuth();
+  const { t } = useTranslation();
   const [complaints, setComplaints] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ export default function MyComplaintsPage() {
           e.currentTarget.style.transform = "translateX(0)";
         }}
       >
-        &#8592; Back
+        &#8592; {t("common.back").replace("← ", "")}
       </button>
       <div
         style={{
@@ -87,17 +89,17 @@ export default function MyComplaintsPage() {
         }}
       >
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>
-          My Complaints
+          {t("myComplaints.navTitle")}
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <Link to="/profile" className="btn btn-ghost btn-sm">
-            Profile
+            {t("nav.profile")}
           </Link>
           <Link to="/complaint" className="btn btn-primary btn-sm">
-            + New Complaint
+            + {t("nav.fileComplaint")}
           </Link>
           <button className="btn btn-ghost btn-sm" onClick={logoutCitizen}>
-            Logout
+            {t("common.logout")}
           </button>
         </div>
       </div>
@@ -105,7 +107,7 @@ export default function MyComplaintsPage() {
       <div
         style={{ maxWidth: "800px", margin: "32px auto", padding: "0 24px" }}
       >
-        <h2 style={{ marginBottom: "24px" }}>Your Filed Complaints</h2>
+        <h2 style={{ marginBottom: "24px" }}>{t("myComplaints.heading")}</h2>
 
         {loading ? (
           <div style={{ display: "grid", gap: "16px" }}>
@@ -127,13 +129,13 @@ export default function MyComplaintsPage() {
           >
             <div style={{ fontSize: "3rem", marginBottom: "12px" }}>📋</div>
             <h3 style={{ marginBottom: "8px", fontSize: "1.1rem" }}>
-              No complaints yet
+              {t("myComplaints.noComplaints")}
             </h3>
             <p style={{ fontSize: "0.85rem", marginBottom: "20px" }}>
-              Start by filing your first complaint
+              {t("myComplaints.noComplaintsStart")}
             </p>
             <Link to="/complaint" className="btn btn-primary">
-              File a Complaint
+              {t("myComplaints.fileFirst")}
             </Link>
           </div>
         ) : (
@@ -181,7 +183,7 @@ export default function MyComplaintsPage() {
                             marginTop: "2px",
                           }}
                         >
-                          {c.incidentType || "General Complaint"}
+                          {c.incidentType || t("myComplaints.generalComplaint")}
                         </div>
                       </div>
                       <div
@@ -199,7 +201,7 @@ export default function MyComplaintsPage() {
                               border: "1px solid rgba(255,59,48,0.3)",
                             }}
                           >
-                            🚨 EMERGENCY
+                            {t("myComplaints.emergency")}
                           </span>
                         )}
                         <span
@@ -229,7 +231,7 @@ export default function MyComplaintsPage() {
                         WebkitBoxOrient: "vertical",
                       }}
                     >
-                      {c.summaryText || "No summary available"}
+                      {c.summaryText || t("myComplaints.noSummary")}
                     </p>
                     <div
                       style={{
@@ -265,7 +267,7 @@ export default function MyComplaintsPage() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
             >
-              ← Prev
+              {t("myComplaints.prevPage")}
             </button>
             <span
               style={{
@@ -281,7 +283,7 @@ export default function MyComplaintsPage() {
               onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
               disabled={page === pagination.pages}
             >
-              Next →
+              {t("myComplaints.nextPage")}
             </button>
           </div>
         )}
