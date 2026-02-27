@@ -57,9 +57,6 @@ ADD COLUMN     "uploader_id" TEXT NOT NULL;
 -- AlterTable
 ALTER TABLE "police_users" ALTER COLUMN "station_id" DROP NOT NULL;
 
--- AlterTable
-ALTER TABLE "users" ADD COLUMN     "mobile_number" TEXT;
-
 -- DropEnum
 DROP TYPE "FileType";
 
@@ -80,9 +77,6 @@ CREATE INDEX "evidence_risk_level_idx" ON "evidence"("risk_level");
 
 -- CreateIndex
 CREATE INDEX "evidence_is_deleted_idx" ON "evidence"("is_deleted");
-
--- CreateIndex
-CREATE UNIQUE INDEX "users_mobile_number_key" ON "users"("mobile_number");
 
 -- AddForeignKey
 ALTER TABLE "police_users" ADD CONSTRAINT "police_users_station_id_fkey" FOREIGN KEY ("station_id") REFERENCES "police_stations"("id") ON DELETE SET NULL ON UPDATE CASCADE;

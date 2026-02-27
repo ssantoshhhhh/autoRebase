@@ -114,14 +114,20 @@ async function runImageAnalysis(imageBuffer, mimeType) {
     try {
         detectionResult = await checkIfAiGenerated(imageBuffer, mimeType);
     } catch (err) {
-        logger.error('[imageAnalysisService] AI detection failed:', err.message);
-        throw new Error('AI detection service failed: ' + err.message);
+        const errJson = JSON.stringify(err, Object.getOwnPropertyNames(err));
+        logger.error(`[imageAnalysisService] AI detection failed — full error: ${errJson}`);
+        throw err;
     }
 
     logger.info(`[imageAnalysisService] Detection complete. AI Generated: ${detectionResult.isAiGenerated}`);
 
     // Early exit if AI generated
     if (detectionResult.isAiGenerated) {
+        logger.info('━━━━━━━━━━━━━━━━ IMAGE ANALYSIS REPORT ━━━━━━━━━━━━━━━━');
+        logger.info(`[imageAnalysisService] 🤖 AI GENERATED IMAGE detected`);
+        logger.info(`[imageAnalysisService] 🎯 Confidence : ${(detectionResult.confidence * 100).toFixed(1)}% AI`);
+        logger.info(`[imageAnalysisService] 📝 Reason     : ${detectionResult.reason}`);
+        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return {
             status: 'completed',
             isAiGenerated: true,
@@ -138,12 +144,43 @@ async function runImageAnalysis(imageBuffer, mimeType) {
     try {
         forensicAnalysis = await generateForensicCaption(imageBuffer, mimeType);
     } catch (err) {
-        logger.error('[imageAnalysisService] Forensic captioning failed:', err.message);
-        throw new Error('Forensic captioning service failed: ' + err.message);
+        const errJson = JSON.stringify(err, Object.getOwnPropertyNames(err));
+        logger.error(`[imageAnalysisService] Forensic captioning failed — full error: ${errJson}`);
+        throw err;
     }
 
     const totalTime = Date.now() - startTime;
-    logger.info(`[imageAnalysisService] Analysis complete. Total time: ${totalTime}ms`);
+
+    // ─── Rich structured log ──────────────────────────────────────────────────
+    const f = forensicAnalysis || {};
+    const analysis = f.analysis || {};
+    const objects = Array.isArray(f.objects) ? f.objects : [];
+    const persons = Array.isArray(f.persons) ? f.persons : [];
+
+    logger.info('━━━━━━━━━━━━━━━━ IMAGE ANALYSIS REPORT ━━━━━━━━━━━━━━━━');
+    logger.info(`[imageAnalysisService] ✅ Real image | Confidence: ${(detectionResult.confidence * 100).toFixed(1)}% real`);
+    logger.info(`[imageAnalysisService] ⚠  Risk Level : ${analysis.riskLevel || 'Unknown'}`);
+    logger.info(`[imageAnalysisService] 📝 Overview   : ${f.overview || 'N/A'}`);
+    logger.info(`[imageAnalysisService] 🔍 Risk Reason: ${analysis.riskReason || 'N/A'}`);
+
+    if (objects.length > 0) {
+        logger.info(`[imageAnalysisService] 📦 Objects (${objects.length}):`);
+        objects.forEach((obj, i) => {
+            logger.info(`  [${i + 1}] ${obj.type || 'Unknown'} — ${obj.details || 'No details'}`);
+        });
+    }
+
+    if (persons.length > 0) {
+        logger.info(`[imageAnalysisService] 👤 Persons (${persons.length}):`);
+        persons.forEach((p, i) => {
+            logger.info(`  [${i + 1}] ${p.gender || '?'}, ~${p.estimatedAge || '?'} | ${p.clothing || ''} | Action: ${p.action || 'N/A'} | Face visible: ${p.faceVisible}`);
+        });
+    }
+
+    logger.info(`[imageAnalysisService] ⏱  Total time : ${totalTime}ms`);
+    logger.info('[imageAnalysisService] Full JSON:');
+    logger.info(JSON.stringify({ isAiGenerated: false, confidence: detectionResult.confidence, forensicAnalysis }, null, 2));
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return {
         status: 'completed',
