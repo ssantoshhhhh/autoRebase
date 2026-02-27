@@ -580,7 +580,6 @@ export default function ComplaintPage() {
       // Mark image as done loading
       setMessages((prev) =>
         prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
-        prev.map((m) => (m.id === imgId ? { ...m, loading: false } : m)),
       );
 
       if (result.success && result.module1?.status === "completed") {
@@ -592,7 +591,6 @@ export default function ComplaintPage() {
       console.error("[Media Analysis Error]", err);
       setMessages((prev) =>
         prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
-        prev.map((m) => (m.id === imgId ? { ...m, loading: false } : m)),
       );
       toast.error("Failed to connect to analysis service.");
     } finally {
@@ -1435,35 +1433,6 @@ export default function ComplaintPage() {
             </>
           )}
         </div>
-        {/* Media / Image Button */}
-        <button
-          onClick={() => imageFileRef.current?.click()}
-          disabled={isImageUploading}
-          title="Upload image for forensic analysis"
-          style={{
-            background: isImageUploading
-              ? "rgba(255,255,255,0.05)"
-              : "rgba(139,92,246,0.15)",
-            border: "1px solid rgba(139,92,246,0.4)",
-            color: isImageUploading ? "rgba(255,255,255,0.3)" : "#a78bfa",
-            cursor: isImageUploading ? "not-allowed" : "pointer",
-            padding: "8px",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.2s",
-          }}
-        >
-          {isImageUploading ? (
-            <Loader2
-              size={20}
-              style={{ animation: "spin 1s linear infinite" }}
-            />
-          ) : (
-            <ImageIcon size={20} />
-          )}
-        </button>
 
         <button
           onClick={finalizeComplaint}
@@ -1524,11 +1493,6 @@ export default function ComplaintPage() {
             border: "none",
             cursor: isInitializing || isSpeaking || isMediaUploading ? "not-allowed" : "pointer",
             backgroundColor: isMediaUploading
-            cursor:
-              isInitializing || isSpeaking || isImageUploading
-                ? "not-allowed"
-                : "pointer",
-            backgroundColor: isImageUploading
               ? "#4b5563"
               : isInitializing
                 ? "#4b5563"
