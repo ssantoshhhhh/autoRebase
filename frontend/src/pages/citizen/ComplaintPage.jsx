@@ -505,12 +505,16 @@ export default function ComplaintPage() {
 
       console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
 
+      // Log full result to browser console only
+      console.log("[Image Analysis Result]", JSON.stringify(result, null, 2));
+
+      // Mark image as done loading
       setMessages((prev) =>
         prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
       );
 
       if (result.success && result.module1?.status === "completed") {
-        toast.success("Analysis complete — check server console for result.");
+        toast.success("Analysis complete — check server logs for full report.");
       } else {
         toast.error(result.module1?.error || "Analysis failed.");
       }
