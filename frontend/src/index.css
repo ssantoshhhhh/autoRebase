@@ -673,3 +673,273 @@ a:hover {
 .tooltip-wrapper:hover .tooltip {
   opacity: 1;
 }
+/* ============ AI Orb Effect ============ */
+
+
+/* ============ Loading Skeleton ============ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--clr-surface) 25%,
+    var(--clr-surface-2) 50%,
+    var(--clr-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--clr-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--clr-surface-2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--clr-text-faint);
+}
+
+/* ============ Utility ============ */
+.flex {
+  display: flex;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.gap-2 {
+  gap: var(--space-2);
+}
+.gap-3 {
+  gap: var(--space-3);
+}
+.gap-4 {
+  gap: var(--space-4);
+}
+.gap-6 {
+  gap: var(--space-6);
+}
+.text-center {
+  text-align: center;
+}
+.text-muted {
+  color: var(--clr-text-muted);
+}
+.text-small {
+  font-size: 0.85rem;
+}
+.font-bold {
+  font-weight: 700;
+}
+.w-full {
+  width: 100%;
+}
+.min-h-screen {
+  min-height: 100vh;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+.relative {
+  position: relative;
+}
+.absolute {
+  position: absolute;
+}
+.inset-0 {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+/* ============ Grid ============ */
+.grid {
+  display: grid;
+}
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+.grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============ Emergency Banner ============ */
+.emergency-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 59, 48, 0.15),
+    rgba(220, 38, 38, 0.1)
+  );
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-6);
+  animation: pulseDot 2s infinite;
+}
+
+/* ============ Voice Waveform ============ */
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+}
+
+.voice-wave-bar {
+  width: 4px;
+  background: var(--clr-primary);
+  border-radius: 2px;
+  animation: waveform 0.8s ease-in-out infinite;
+}
+
+.voice-wave-bar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.voice-wave-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.voice-wave-bar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.voice-wave-bar:nth-child(5) {
+  animation-delay: 0.2s;
+}
+.voice-wave-bar:nth-child(6) {
+  animation-delay: 0.1s;
+}
+
+/* ============ Divider ============ */
+.divider {
+  height: 1px;
+  background: var(--clr-border);
+  margin: var(--space-6) 0;
+}
+
+/* ============ Tooltip ============ */
+.tooltip-wrapper {
+  position: relative;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--clr-surface-2);
+  color: var(--clr-text);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  border: 1px solid var(--clr-border);
+}
+
+.tooltip-wrapper:hover .tooltip {
+  opacity: 1;
+}
+/* ============ AI Orb Effect ============ */
+.ai-orb-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  height: 400px;
+  pointer-events: none;
+  z-index: 2; /* Lower z-index to stay behind messages */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+}
+
+.ai-orb-core {
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, #60a5fa 10%, #2563eb 60%, #1e40af 90%);
+  border-radius: 50%;
+  filter: blur(2px);
+  box-shadow: 
+    0 0 30px #3b82f6, 
+    0 0 60px #2563eb,
+    0 0 100px rgba(59, 130, 246, 0.6),
+    0 0 150px rgba(37, 99, 235, 0.4);
+  animation: orbPulse 2s ease-in-out infinite, orbGlow 4s ease-in-out infinite;
+}
+
+.ai-orb-ring {
+  position: absolute;
+  border: 2px solid rgba(96, 165, 250, 0.5);
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  animation: orbRotate 10s linear infinite;
+  box-shadow: inset 0 0 15px rgba(59, 130, 246, 0.2), 0 0 15px rgba(59, 130, 246, 0.2);
+}
+
+.ai-orb-ring-1 {
+  width: 180px;
+  height: 180px;
+  animation-duration: 6s;
+  border-color: rgba(96, 165, 250, 0.6);
+}
+
+.ai-orb-ring-2 {
+  width: 250px;
+  height: 250px;
+  animation-duration: 9s;
+  animation-direction: reverse;
+  border-color: rgba(139, 92, 246, 0.5); /* Slight purple tint */
+}
+
+.ai-orb-ring-3 {
+  width: 320px;
+  height: 320px;
+  animation-duration: 12s;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+@keyframes orbRotate {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes orbPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes orbGlow {
+  0%, 100% { filter: brightness(1) blur(2px); box-shadow: 0 0 50px #3b82f6, 0 0 100px rgba(59, 130, 246, 0.5); }
+  50% { filter: brightness(1.3) blur(1px); box-shadow: 0 0 70px #60a5fa, 0 0 140px rgba(96, 165, 250, 0.8); }
+}

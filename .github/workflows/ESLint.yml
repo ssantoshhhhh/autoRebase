@@ -1,0 +1,194 @@
+name: Code Quality & PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      # ---------- ESLint ----------
+      - name: Run ESLint
+        run: |
+          echo "🔍 Running ESLint..."
+          npx eslint "src/**/*.{js,jsx,ts,tsx}" "tests/**/*.{js,jsx,ts,tsx}" > eslint_output.txt || true
+          if [ -s eslint_output.txt ]; then
+            echo "eslint_status=fail" >> $GITHUB_ENV
+          else
+            echo "eslint_status=pass" >> $GITHUB_ENV
+          fi
+
+      # ---------- TypeScript ----------
+      - name: Run TypeScript type check
+        run: |
+          echo "🔍 Running TypeScript..."
+          npx tsc --noEmit > tsc_output.txt || true
+          if [ -s tsc_output.txt ]; then
+            echo "tsc_status=fail" >> $GITHUB_ENV
+          else
+            echo "tsc_status=pass" >> $GITHUB_ENV
+          fi
+
+      # ---------- Prettier ----------
+      - name: Run Prettier
+        run: |
+          echo "🔍 Running Prettier..."
+          npx prettier --list-different . --ignore-path .prettierignore > prettier_output.txt || true
+          if [ -s prettier_output.txt ]; then
+            echo "prettier_status=fail" >> $GITHUB_ENV
+          else
+            echo "prettier_status=pass" >> $GITHUB_ENV
+          fi
+
+      # ---------- PR Size ----------
+      - name: Run PR size check
+        if: github.event_name == 'pull_request'
+        run: |
+          lineSize=500
+          changes=$(( ${{ github.event.pull_request.additions }} + ${{ github.event.pull_request.deletions }} ))
+          if [ $changes -gt $lineSize ]; then
+            echo "pr_size_status=fail" >> $GITHUB_ENV
+            echo "pr_size_msg=❌ PR too large ($changes lines changed). Please keep <= $lineSize." >> $GITHUB_ENV
+          else
+            echo "pr_size_status=pass" >> $GITHUB_ENV
+            echo "pr_size_msg=✅ PR size is good ($changes lines changed)." >> $GITHUB_ENV
+          fi
+
+      # ---------- Console Log Check ----------
+      - name: Run console.log check
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            let offendingDetails = [];
+            const lineRegex = /console\.log\s*\(/g;
+
+            for (const file of files) {
+              if (!file.filename.match(/\.(js|jsx|ts|tsx)$/)) continue;
+              const res = await github.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/contents/${file.filename}?ref=${pr.head.ref}`);
+              let content = Buffer.from(res.data.content, 'base64').toString('utf8');
+              let lines = content.split('\n');
+              let foundLines = [];
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].match(lineRegex)) foundLines.push(i + 1);
+              }
+              if (foundLines.length > 0) {
+                offendingDetails.push({ filename: file.filename, lines: foundLines });
+              }
+            }
+
+            let consoleStatus, consoleMsg;
+            if (offendingDetails.length > 0) {
+              consoleStatus = "fail";
+              const offendingList = offendingDetails.map(f => {
+                let lineNums = f.lines.map(n => `**${n}**`).join(', ');
+                return `${f.filename} (${lineNums})`;
+              }).join('\n');
+              consoleMsg = `<details><summary>❌ <strong>console.log</strong> found in ${offendingDetails.length} file${offendingDetails.length === 1 ? "" : "s"}.</summary>\n\n<pre>\n${offendingList}\n</pre>\n\n💡 Avoid using <code>console.log</code>; instead, use a proper logger where necessary.\n</details>`;
+            } else {
+              consoleStatus = "pass";
+              consoleMsg = `✅ No <strong>console.log</strong> statements found.`;
+            }
+
+            core.exportVariable("console_status", consoleStatus);
+            core.exportVariable("console_msg", consoleMsg);
+
+      # ---------- Final Combined Comment ----------
+      - name: Comment combined results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require("fs");
+            const truncate = (file, max=5000) => {
+              if (!fs.existsSync(file)) return "";
+              let content = fs.readFileSync(file, "utf8").trim();
+              return content.length > max ? content.substring(0,max) + `\n...truncated` : content;
+            };
+
+            const eslint = process.env.eslint_status === "fail"
+              ? `<details><summary>❌ ESLint Failed</summary>\n\n\`\`\`\n${truncate("eslint_output.txt")}\n\`\`\`\n</details>`
+              : "✅ ESLint Passed";
+
+            const tsc = process.env.tsc_status === "fail"
+              ? `<details><summary>❌ TypeScript Failed</summary>\n\n\`\`\`\n${truncate("tsc_output.txt")}\n\`\`\`\n</details>`
+              : "✅ TypeScript Passed";
+
+            const prettier = process.env.prettier_status === "fail"
+              ? `<details><summary>❌ Prettier Failed</summary>\n\n\`\`\`\n${truncate("prettier_output.txt")}\n\`\`\`\n💡 Run \`npx prettier --write <file>\` (or \`npx prettier --write .\` for all) to fix.</details>`
+              : "✅ Prettier Passed";
+
+            const prSize = process.env.pr_size_msg || "⚠️ Not checked";
+            const consoleMsg = process.env.console_msg || "⚠️ Not checked";
+
+            let body = `### 🔎 Code Quality & PR Checks\n\n${eslint}\n\n${tsc}\n\n${prettier}\n\n${prSize}\n\n${consoleMsg}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+      
+      # ---------- Update PR Title (✅/❌) ----------
+      - name: Update PR title (✅/❌)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+            let title = pr.title.replace(/^❌\s*|^✅\s*/, "");
+            let overallFail = [process.env.eslint_status, process.env.tsc_status, process.env.prettier_status, process.env.pr_size_status, process.env.console_status].includes("fail");
+            let newTitle = overallFail ? `❌ ${title}` : `✅ ${title}`;
+            if (newTitle !== pr.title) {
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                title: newTitle,
+              });
+            }
+
+      # ---------- Fail Workflow if Needed ----------
+      - name: Fail if any check fails
+        run: |
+          if [ "$eslint_status" = "fail" ] || [ "$tsc_status" = "fail" ] || [ "$prettier_status" = "fail" ] || [ "$pr_size_status" = "fail" ] || [ "$console_status" = "fail" ]; then
+            echo "❌ One or more checks failed."
+            exit 1
+          else
+            echo "✅ All checks passed."
+          fi

@@ -16,6 +16,7 @@ import PoliceDashboard from "./pages/police/PoliceDashboard";
 import ComplaintDetailPage from "./pages/police/ComplaintDetailPage";
 import OfficersPage from "./pages/police/OfficersPage";
 import AnalyticsPage from "./pages/police/AnalyticsPage";
+import StationManagement from "./pages/police/StationManagement";
 
 function CitizenRoute({ children }) {
   const { user, loading } = useAuth();
@@ -122,6 +123,14 @@ function AppRoutes() {
         element={
           <PoliceRoute>
             <AnalyticsPage />
+          </PoliceRoute>
+        }
+      />
+      <Route
+        path="/police/stations"
+        element={
+          <PoliceRoute>
+            <StationManagement />
           </PoliceRoute>
         }
       />
