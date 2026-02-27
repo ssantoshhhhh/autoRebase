@@ -32,6 +32,9 @@ export default function ComplaintDetailPage() {
   const [selectedOfficer, setSelectedOfficer] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [activeView, setActiveView] = useState("transcript");
+  // Face detection state: keyed by evidenceId
+  // { [evidenceId]: { loading, results, error } }
+  const [faceSearchState, setFaceSearchState] = useState({});
 
   const token = localStorage.getItem("reva_police_token");
   const headers = { Authorization: `Bearer ${token}` };
@@ -107,6 +110,40 @@ export default function ComplaintDetailPage() {
       setSubmittingNote(false);
     }
   };
+
+  // ── Face detection ────────────────────────────────────────────────────────
+  const searchFaces = async (evidenceId) => {
+    setFaceSearchState((prev) => ({
+      ...prev,
+      [evidenceId]: { loading: true, results: null, error: null },
+    }));
+    try {
+      const res = await api.post(
+        `/api/police/evidence/${evidenceId}/detect-faces`,
+        {},
+        { headers },
+      );
+      setFaceSearchState((prev) => ({
+        ...prev,
+        [evidenceId]: { loading: false, results: res.data, error: null },
+      }));
+      if (res.data.facesFound === 0) {
+        toast("No faces detected in this image", { icon: "🔍" });
+      } else {
+        toast.success(
+          `${res.data.facesFound} face(s) detected, ${res.data.matchesFound} matched`,
+        );
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || "Face search failed";
+      setFaceSearchState((prev) => ({
+        ...prev,
+        [evidenceId]: { loading: false, results: null, error: msg },
+      }));
+      toast.error(msg);
+    }
+  };
+
 
   if (loading)
     return (
@@ -612,28 +649,232 @@ export default function ComplaintDetailPage() {
           {/* Evidence */}
           {complaint.evidence?.length > 0 && (
             <div className="card">
-              <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+              <h4 style={{ marginBottom: "16px", fontSize: "0.95rem" }}>
                 Evidence ({complaint.evidence.length})
               </h4>
-              {complaint.evidence.map((e, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "8px 0",
-                    borderBottom: "1px solid var(--clr-border)",
-                    fontSize: "0.82rem",
-                  }}
-                >
-                  <span style={{ color: "var(--clr-text-muted)" }}>
-                    {e.fileType}
-                  </span>
-                  <span style={{ color: "var(--clr-text-faint)" }}>
-                    {new Date(e.uploadedAt).toLocaleDateString("en-IN")}
-                  </span>
-                </div>
-              ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {complaint.evidence.map((ev) => {
+                  const isImage = ev.mediaCategory === "IMAGE";
+                  const faceState = faceSearchState[ev.id] || {};
+                  // Use saved detectedFaces from DB if no in-session search yet
+                  const savedFaces = ev.detectedFaces || [];
+                  const results = faceState.results;
+                  const displayFaces = results
+                    ? results.results
+                    : savedFaces.map((df) => ({
+                      bbox: df.boundingBoxJson,
+                      confidence: df.confidence,
+                      matchedPerson: df.personOfInterest,
+                    }));
+
+                  return (
+                    <div
+                      key={ev.id}
+                      style={{
+                        border: "1px solid var(--clr-border)",
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        background: "var(--clr-bg-3)",
+                      }}
+                    >
+                      {/* Evidence header */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 14px",
+                          borderBottom: "1px solid var(--clr-border)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "1.1rem" }}>
+                            {isImage ? "🖼️" : ev.mediaCategory === "VIDEO" ? "🎥" : ev.mediaCategory === "AUDIO" ? "🎵" : "📄"}
+                          </span>
+                          <span style={{ fontSize: "0.82rem", color: "var(--clr-text-muted)" }}>
+                            {ev.fileName || ev.mediaCategory}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "0.75rem", color: "var(--clr-text-faint)" }}>
+                            {new Date(ev.uploadedAt).toLocaleDateString("en-IN")}
+                          </span>
+                          {/* Face Search Button — only for images */}
+                          {isImage && (
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => searchFaces(ev.id)}
+                              disabled={faceState.loading}
+                              style={{
+                                background: faceState.loading
+                                  ? "rgba(99,102,241,0.15)"
+                                  : "rgba(99,102,241,0.2)",
+                                color: "#818cf8",
+                                border: "1px solid rgba(99,102,241,0.3)",
+                                borderRadius: "6px",
+                                padding: "4px 10px",
+                                fontSize: "0.75rem",
+                                cursor: faceState.loading ? "not-allowed" : "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                transition: "all 0.2s",
+                              }}
+                            >
+                              {faceState.loading ? (
+                                <>
+                                  <span
+                                    style={{
+                                      width: "10px",
+                                      height: "10px",
+                                      border: "2px solid rgba(129,140,248,0.4)",
+                                      borderTopColor: "#818cf8",
+                                      borderRadius: "50%",
+                                      animation: "spin 0.8s linear infinite",
+                                      display: "inline-block",
+                                    }}
+                                  />
+                                  Scanning...
+                                </>
+                              ) : (
+                                <>
+                                  🔍 Search Faces
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Image preview with bounding boxes */}
+                      {isImage && ev.cdnUrl && (
+                        <div style={{ position: "relative", textAlign: "center", background: "#000", maxHeight: "260px", overflow: "hidden" }}>
+                          <img
+                            src={ev.cdnUrl}
+                            alt="Evidence"
+                            style={{ maxWidth: "100%", maxHeight: "260px", objectFit: "contain", display: "block", margin: "0 auto" }}
+                          />
+                          {/* Bounding box labels */}
+                          {displayFaces.map((face, fi) => (
+                            face.bbox && face.matchedPerson && (
+                              <div
+                                key={fi}
+                                style={{
+                                  position: "absolute",
+                                  top: "6px",
+                                  left: "6px",
+                                  background: "rgba(239,68,68,0.85)",
+                                  color: "#fff",
+                                  fontSize: "0.65rem",
+                                  fontWeight: 700,
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                FACE {fi + 1} MATCHED
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Face results panel */}
+                      {(displayFaces.length > 0 || faceState.error) && (
+                        <div style={{ padding: "12px 14px" }}>
+                          {faceState.error && (
+                            <p style={{ fontSize: "0.8rem", color: "#f87171", margin: 0 }}>
+                              ⚠️ {faceState.error}
+                            </p>
+                          )}
+
+                          {displayFaces.length === 0 && !faceState.error && (
+                            <p style={{ fontSize: "0.8rem", color: "var(--clr-text-faint)", margin: 0, textAlign: "center" }}>
+                              🔍 No faces detected in this image
+                            </p>
+                          )}
+
+                          {displayFaces.map((face, fi) => (
+                            <div
+                              key={fi}
+                              style={{
+                                marginBottom: fi < displayFaces.length - 1 ? "10px" : 0,
+                                padding: "10px",
+                                borderRadius: "8px",
+                                background: face.matchedPerson
+                                  ? "rgba(239,68,68,0.08)"
+                                  : "rgba(255,255,255,0.03)",
+                                border: face.matchedPerson
+                                  ? "1px solid rgba(239,68,68,0.25)"
+                                  : "1px solid var(--clr-border)",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: face.matchedPerson ? "8px" : 0 }}>
+                                <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "var(--clr-text-muted)" }}>
+                                  Face {fi + 1}
+                                </span>
+                                {face.bbox && (
+                                  <span style={{ fontSize: "0.68rem", color: "var(--clr-text-faint)" }}>
+                                    [{Math.round(face.bbox.x1)},{Math.round(face.bbox.y1)}] → [{Math.round(face.bbox.x2)},{Math.round(face.bbox.y2)}]
+                                  </span>
+                                )}
+                              </div>
+
+                              {face.matchedPerson ? (
+                                <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                                  {/* Category badge */}
+                                  <div
+                                    style={{
+                                      minWidth: "56px",
+                                      textAlign: "center",
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      fontSize: "0.62rem",
+                                      fontWeight: 800,
+                                      letterSpacing: "0.05em",
+                                      background:
+                                        face.matchedPerson.category === "WANTED"
+                                          ? "rgba(239,68,68,0.2)"
+                                          : face.matchedPerson.category === "MISSING"
+                                            ? "rgba(251,191,36,0.2)"
+                                            : "rgba(99,102,241,0.2)",
+                                      color:
+                                        face.matchedPerson.category === "WANTED"
+                                          ? "#f87171"
+                                          : face.matchedPerson.category === "MISSING"
+                                            ? "#fbbf24"
+                                            : "#818cf8",
+                                    }}
+                                  >
+                                    {face.matchedPerson.category}
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--clr-text)", marginBottom: "2px" }}>
+                                      {face.matchedPerson.name}
+                                    </div>
+                                    {face.matchedPerson.notes && (
+                                      <div style={{ fontSize: "0.75rem", color: "var(--clr-text-muted)", lineHeight: 1.4 }}>
+                                        {face.matchedPerson.notes}
+                                      </div>
+                                    )}
+                                    <div style={{ marginTop: "4px", fontSize: "0.7rem", color: "var(--clr-text-faint)" }}>
+                                      Confidence: {(face.confidence * 100).toFixed(1)}%
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: "0.75rem", color: "var(--clr-text-faint)", marginTop: "2px" }}>
+                                  No match found in database
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

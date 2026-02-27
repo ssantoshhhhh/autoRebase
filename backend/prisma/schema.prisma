@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 enum UserRole {
@@ -234,8 +236,9 @@ model Evidence {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   // ── Relations ──────────────────────────────────────────────────────────────
-  complaint Complaint @relation("ComplaintEvidence", fields: [complaintId], references: [id])
-  uploader  User      @relation("UploaderEvidence", fields: [uploaderId], references: [id])
+  complaint     Complaint      @relation("ComplaintEvidence", fields: [complaintId], references: [id])
+  uploader      User           @relation("UploaderEvidence", fields: [uploaderId], references: [id])
+  detectedFaces DetectedFace[]
 
   // ── Indexes ────────────────────────────────────────────────────────────────
   @@index([complaintId]) // fetch all evidence for a complaint
@@ -245,6 +248,42 @@ model Evidence {
   @@index([riskLevel]) // surface high-risk evidence fast
   @@index([isDeleted])
   @@map("evidence")
+}
+
+// ─── Face Recognition Models ──────────────────────────────────────────────────
+
+// Known people in the police database (suspects, missing persons, etc.)
+model PersonOfInterest {
+  id            String    @id @default(uuid())
+  name          String
+  category      String    // "WANTED", "MISSING", "SUSPECT", "PERSON_OF_INTEREST"
+  notes         String?
+  photoUrl      String?   @map("photo_url")
+  embedding     Unsupported("vector(512)")?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  detectedFaces DetectedFace[]
+
+  @@map("persons_of_interest")
+}
+
+// Links faces found in evidence to an officer's search result
+model DetectedFace {
+  id                 String   @id @default(uuid())
+  evidenceId         String   @map("evidence_id")
+  personOfInterestId String?  @map("person_of_interest_id")
+
+  boundingBoxJson    Json     @map("bounding_box")  // { x1, y1, x2, y2 }
+  embedding          Unsupported("vector(512)")
+  confidence         Float    // cosine similarity score (0.0–1.0); 0 if no match
+
+  detectedAt         DateTime @default(now()) @map("detected_at")
+
+  evidence         Evidence           @relation(fields: [evidenceId], references: [id])
+  personOfInterest PersonOfInterest? @relation(fields: [personOfInterestId], references: [id])
+
+  @@index([evidenceId])
+  @@map("detected_faces")
 }
 
 // ─── Supporting Models ────────────────────────────────────────────────────────
