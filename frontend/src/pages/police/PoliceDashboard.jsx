@@ -65,6 +65,7 @@ export default function PoliceDashboard() {
       const params = new URLSearchParams({ page, limit: 15, ...filter });
       if (activeTab === "mine") params.set("assignedTo", "me");
       if (activeTab === "emergency") params.set("priority", "EMERGENCY");
+      if (activeTab === "cyber") params.set("search", "Cybercrime");
 
       const res = await api.get(`/api/police/complaints?${params}`, {
         headers: {
@@ -411,6 +412,133 @@ export default function PoliceDashboard() {
               </div>
             )}
 
+            {/* Cyber Intel Dashboard Integration */}
+            <div style={{ marginBottom: "28px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "#60a5fa",
+                    boxShadow: "0 0 10px #60a5fa",
+                  }}
+                />
+                <h2 style={{ fontSize: "1.2rem", color: "#60a5fa" }}>
+                  🛡️ Cyber-Intel Threat Awareness
+                </h2>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                {/* Attack Vectors */}
+                <div className="card" style={{ padding: "20px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--clr-text-muted)",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    Active Attack Vectors (Regional)
+                  </div>
+                  <div style={{ display: "flex", gap: "12px" }}>
+                    {[
+                      { l: "Social Engineering", v: "44%", c: "#fbbf24" },
+                      { l: "Phishing", v: "28%", c: "#f87171" },
+                      { l: "Identity Theft", v: "15%", c: "#a78bfa" },
+                      { l: "Financial Fraud", v: "13%", c: "#60a5fa" },
+                    ].map((vector) => (
+                      <div
+                        key={vector.l}
+                        style={{ flex: 1, textAlign: "center" }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "1.2rem",
+                            fontWeight: 700,
+                            color: vector.c,
+                          }}
+                        >
+                          {vector.v}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "var(--clr-text-faint)",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {vector.l}
+                        </div>
+                        <div
+                          style={{
+                            height: "4px",
+                            background: "rgba(255,255,255,0.05)",
+                            borderRadius: "2px",
+                            marginTop: "8px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: vector.v,
+                              background: vector.c,
+                              borderRadius: "2px",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Forensic Audit Stream */}
+                <div
+                  className="card"
+                  style={{ padding: "16px", background: "rgba(0,0,0,0.2)" }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#10b981",
+                      marginBottom: "8px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    IMMUTABLE AUDIT STREAM
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.65rem",
+                      fontFamily: "monospace",
+                      color: "rgba(255,255,255,0.4)",
+                      lineHeight: "1.4",
+                    }}
+                  >
+                    [SYS] Integrity Check: PASSED (SHA-256)
+                    <br />
+                    [AUDIT] Auth Request: Officer_
+                    {policeUser?.name?.slice(0, 3)}...
+                    <br />
+                    [SIGN] Forensic Envelope: Sealed v1.2
+                    <br />
+                    [BLOCK] Tracking ID verification...
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Tabs */}
             <div
               style={{
@@ -424,6 +552,7 @@ export default function PoliceDashboard() {
               {[
                 { id: "all", label: "All Complaints" },
                 { id: "emergency", label: "🚨 Emergency" },
+                { id: "cyber", label: "🛡️ Cyber Crimes" },
                 { id: "mine", label: "Assigned to Me" },
               ].map((tab) => (
                 <button

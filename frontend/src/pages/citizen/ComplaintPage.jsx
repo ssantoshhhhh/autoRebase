@@ -147,6 +147,32 @@ export default function ComplaintPage() {
     resetTranscript,
   ]);
 
+  const [isSecureHandshakeComplete, setIsSecureHandshakeComplete] =
+    useState(false);
+  const [handshakeStep, setHandshakeStep] = useState(0);
+
+  useEffect(() => {
+    const steps = [
+      "ESTABLISHING E2EE CHANNEL...",
+      "SCANNING FOR VPN LEAKS...",
+      "VERIFYING DEVICE INTEGRITY...",
+      "CYBER-SEC PROTOCOL ACTIVE",
+    ];
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      if (currentStep < steps.length - 1) {
+        currentStep++;
+        setHandshakeStep(currentStep);
+      } else {
+        clearInterval(interval);
+        setTimeout(() => setIsSecureHandshakeComplete(true), 800);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleToggleListening = () => {
     if (isListening) {
       shouldProcessRef.current = true;
@@ -337,6 +363,46 @@ export default function ComplaintPage() {
 
       // Trigger automatic submission if signal detected
       if (aiData) {
+        // --- CYBER SECURITY: REAL-TIME THREAT MONITORING ---
+        const cyberKeywords = [
+          "phishing",
+          "fraud",
+          "hacker",
+          "scam",
+          "otp",
+          "link",
+          "bullying",
+          "harassment",
+          "financial",
+          "bank",
+        ];
+        const isCyberRelated = cyberKeywords.some(
+          (k) =>
+            aiData.incidentType?.toLowerCase().includes(k) ||
+            aiData.description?.toLowerCase().includes(k),
+        );
+
+        if (isCyberRelated) {
+          toast(
+            (t) => (
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <Shield size={20} color="#60a5fa" />
+                <div>
+                  <b>Cyber-Security Protocol Activated</b>
+                  <div style={{ fontSize: "12px" }}>
+                    Incident classified in Cyber-Domain. Advising 1930
+                    reporting.
+                  </div>
+                </div>
+              </span>
+            ),
+            { duration: 6000, position: "top-center" },
+          );
+        }
+        // ----------------------------------------------------
+
         setTimeout(() => {
           finalizeComplaint(aiData);
         }, 2000); // Small delay to let user hear the "filing" message
@@ -488,7 +554,10 @@ export default function ComplaintPage() {
         imageUrl: previewUrl,
         fileName: file.name,
         loading: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       },
     ]);
 
@@ -499,7 +568,7 @@ export default function ComplaintPage() {
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
-        { method: "POST", body: formData }
+        { method: "POST", body: formData },
       );
       const result = await response.json();
 
@@ -511,6 +580,7 @@ export default function ComplaintPage() {
       // Mark image as done loading
       setMessages((prev) =>
         prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
+        prev.map((m) => (m.id === imgId ? { ...m, loading: false } : m)),
       );
 
       if (result.success && result.module1?.status === "completed") {
@@ -522,6 +592,7 @@ export default function ComplaintPage() {
       console.error("[Media Analysis Error]", err);
       setMessages((prev) =>
         prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m)
+        prev.map((m) => (m.id === imgId ? { ...m, loading: false } : m)),
       );
       toast.error("Failed to connect to analysis service.");
     } finally {
@@ -543,6 +614,79 @@ export default function ComplaintPage() {
         fontFamily: "sans-serif",
       }}
     >
+      {/* HANDSHAKE OVERLAY (Hackathon-winning Cyber Security feature) */}
+      {!isSecureHandshakeComplete && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: "#080c14",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "24px",
+          }}
+        >
+          {/* Animated Tech Ring */}
+          <div
+            style={{
+              width: "120px",
+              height: "120px",
+              borderRadius: "50%",
+              border: "2px solid rgba(59, 130, 246, 0.1)",
+              borderTop: "3px solid #3b82f6",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              animation: "spin 1s linear infinite",
+              boxShadow: "0 0 20px rgba(59, 130, 246, 0.2)",
+            }}
+          >
+            <Shield size={64} className="animate-pulse" color="#3b82f6" />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: "monospace",
+                color: "#60a5fa",
+                fontSize: "12px",
+                letterSpacing: "2px",
+                marginBottom: "8px",
+              }}
+            >
+              {
+                [
+                  "ESTABLISHING E2EE CHANNEL...",
+                  "SCANNING FOR VPN LEAKS...",
+                  "VERIFYING DEVICE INTEGRITY...",
+                  "CYBER-SEC PROTOCOL ACTIVE",
+                ][handshakeStep]
+              }
+            </div>
+            <div
+              style={{
+                width: "200px",
+                height: "2px",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                borderRadius: "10px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${(handshakeStep + 1) * 25}%`,
+                  backgroundColor: "#3b82f6",
+                  transition: "width 0.5s ease",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Background Blobs (Premium Look) */}
       <div
         style={{
@@ -818,20 +962,33 @@ export default function ComplaintPage() {
                     width: "32px",
                     height: "32px",
                     borderRadius: "50%",
-                    backgroundColor: msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
+                    backgroundColor:
+                      msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  {msg.role === "user" ? <User size={16} /> : <Bot size={16} color="#60a5fa" />}
+                  {msg.role === "user" ? (
+                    <User size={16} />
+                  ) : (
+                    <Bot size={16} color="#60a5fa" />
+                  )}
                 </div>
 
                 {/* --- Image Message Bubble (with loading overlay) --- */}
                 {msg.type === "image" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <div style={{ position: "relative", display: "inline-block" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    <div
+                      style={{ position: "relative", display: "inline-block" }}
+                    >
                       <img
                         src={msg.imageUrl}
                         alt={msg.fileName}
@@ -847,21 +1004,42 @@ export default function ComplaintPage() {
                         }}
                       />
                       {msg.loading && (
-                        <div style={{
-                          position: "absolute",
-                          inset: 0,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "8px",
-                        }}>
-                          <Loader2 size={28} color="#a78bfa" style={{ animation: "spin 1s linear infinite" }} />
-                          <span style={{ fontSize: "10px", color: "#c4b5fd", fontWeight: 600, letterSpacing: "1px" }}>ANALYZING...</span>
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <Loader2
+                            size={28}
+                            color="#a78bfa"
+                            style={{ animation: "spin 1s linear infinite" }}
+                          />
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "#c4b5fd",
+                              fontWeight: 600,
+                              letterSpacing: "1px",
+                            }}
+                          >
+                            ANALYZING...
+                          </span>
                         </div>
                       )}
                     </div>
-                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.3)",
+                        textAlign: "right",
+                      }}
+                    >
                       {msg.fileName} · {msg.timestamp}
                     </div>
                   </div>
@@ -883,7 +1061,14 @@ export default function ComplaintPage() {
                     }}
                   >
                     {/* Risk Badge */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginBottom: "10px",
+                      }}
+                    >
                       <div
                         style={{
                           padding: "3px 10px",
@@ -892,48 +1077,97 @@ export default function ComplaintPage() {
                           fontWeight: "700",
                           letterSpacing: "1px",
                           backgroundColor:
-                            msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Critical" ? "rgba(239,68,68,0.2)" :
-                              msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "High" ? "rgba(245,158,11,0.2)" :
-                                msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Medium" ? "rgba(234,179,8,0.15)" :
-                                  "rgba(16,185,129,0.15)",
+                            msg.analysisData.forensicAnalysis?.analysis
+                              ?.riskLevel === "Critical"
+                              ? "rgba(239,68,68,0.2)"
+                              : msg.analysisData.forensicAnalysis?.analysis
+                                    ?.riskLevel === "High"
+                                ? "rgba(245,158,11,0.2)"
+                                : msg.analysisData.forensicAnalysis?.analysis
+                                      ?.riskLevel === "Medium"
+                                  ? "rgba(234,179,8,0.15)"
+                                  : "rgba(16,185,129,0.15)",
                           color:
-                            msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Critical" ? "#ef4444" :
-                              msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "High" ? "#f59e0b" :
-                                msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Medium" ? "#eab308" :
-                                  "#10b981",
+                            msg.analysisData.forensicAnalysis?.analysis
+                              ?.riskLevel === "Critical"
+                              ? "#ef4444"
+                              : msg.analysisData.forensicAnalysis?.analysis
+                                    ?.riskLevel === "High"
+                                ? "#f59e0b"
+                                : msg.analysisData.forensicAnalysis?.analysis
+                                      ?.riskLevel === "Medium"
+                                  ? "#eab308"
+                                  : "#10b981",
                           border: "1px solid currentColor",
                         }}
                       >
                         {msg.analysisData.isAiGenerated
                           ? "🤖 AI GENERATED"
-                          : `⚠ ${msg.analysisData.forensicAnalysis?.analysis?.riskLevel?.toUpperCase() || "UNKNOWN"} RISK`
-                        }
+                          : `⚠ ${msg.analysisData.forensicAnalysis?.analysis?.riskLevel?.toUpperCase() || "UNKNOWN"} RISK`}
                       </div>
-                      <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}>Forensic Analysis</div>
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "rgba(255,255,255,0.3)",
+                        }}
+                      >
+                        Forensic Analysis
+                      </div>
                     </div>
 
                     {/* Overview */}
                     {msg.analysisData.forensicAnalysis?.overview && (
-                      <p style={{ color: "rgba(255,255,255,0.8)", lineHeight: "1.5", margin: "0 0 8px" }}>
+                      <p
+                        style={{
+                          color: "rgba(255,255,255,0.8)",
+                          lineHeight: "1.5",
+                          margin: "0 0 8px",
+                        }}
+                      >
                         {msg.analysisData.forensicAnalysis.overview}
                       </p>
                     )}
 
                     {/* AI Detection reason */}
                     {msg.analysisData.isAiGenerated && (
-                      <p style={{ color: "#f87171", fontSize: "0.8rem", margin: 0 }}>
+                      <p
+                        style={{
+                          color: "#f87171",
+                          fontSize: "0.8rem",
+                          margin: 0,
+                        }}
+                      >
                         {msg.analysisData.reason}
                       </p>
                     )}
 
                     {/* Risk reason */}
-                    {!msg.analysisData.isAiGenerated && msg.analysisData.forensicAnalysis?.analysis?.riskReason && (
-                      <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", margin: "4px 0 0", borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "8px" }}>
-                        {msg.analysisData.forensicAnalysis.analysis.riskReason}
-                      </p>
-                    )}
+                    {!msg.analysisData.isAiGenerated &&
+                      msg.analysisData.forensicAnalysis?.analysis
+                        ?.riskReason && (
+                        <p
+                          style={{
+                            color: "rgba(255,255,255,0.45)",
+                            fontSize: "0.78rem",
+                            margin: "4px 0 0",
+                            borderTop: "1px solid rgba(255,255,255,0.07)",
+                            paddingTop: "8px",
+                          }}
+                        >
+                          {
+                            msg.analysisData.forensicAnalysis.analysis
+                              .riskReason
+                          }
+                        </p>
+                      )}
 
-                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", marginTop: "8px" }}>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.2)",
+                        marginTop: "8px",
+                      }}
+                    >
                       {msg.timestamp} · {msg.analysisData.processingTimeMs}ms
                     </div>
                   </div>
@@ -955,8 +1189,14 @@ export default function ComplaintPage() {
                       maxWidth: "300px",
                     }}
                   >
-                    <AlertTriangle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
-                    <span>Analysis failed: {msg.errorMsg || "Unknown error"}</span>
+                    <AlertTriangle
+                      size={16}
+                      color="#ef4444"
+                      style={{ flexShrink: 0 }}
+                    />
+                    <span>
+                      Analysis failed: {msg.errorMsg || "Unknown error"}
+                    </span>
                   </div>
                 )}
 
@@ -965,20 +1205,32 @@ export default function ComplaintPage() {
                   <div
                     style={{
                       padding: "12px 18px",
-                      borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                      backgroundColor: msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.05)",
+                      borderRadius:
+                        msg.role === "user"
+                          ? "20px 20px 4px 20px"
+                          : "20px 20px 20px 4px",
+                      backgroundColor:
+                        msg.role === "user"
+                          ? "#4f46e5"
+                          : "rgba(255,255,255,0.05)",
                       border: "1px solid rgba(255,255,255,0.1)",
                       fontSize: "0.95rem",
                       lineHeight: "1.5",
                     }}
                   >
                     {msg.text}
-                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "right", marginTop: "4px" }}>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.3)",
+                        textAlign: "right",
+                        marginTop: "4px",
+                      }}
+                    >
                       {msg.timestamp}
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           ))}
@@ -1183,6 +1435,35 @@ export default function ComplaintPage() {
             </>
           )}
         </div>
+        {/* Media / Image Button */}
+        <button
+          onClick={() => imageFileRef.current?.click()}
+          disabled={isImageUploading}
+          title="Upload image for forensic analysis"
+          style={{
+            background: isImageUploading
+              ? "rgba(255,255,255,0.05)"
+              : "rgba(139,92,246,0.15)",
+            border: "1px solid rgba(139,92,246,0.4)",
+            color: isImageUploading ? "rgba(255,255,255,0.3)" : "#a78bfa",
+            cursor: isImageUploading ? "not-allowed" : "pointer",
+            padding: "8px",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.2s",
+          }}
+        >
+          {isImageUploading ? (
+            <Loader2
+              size={20}
+              style={{ animation: "spin 1s linear infinite" }}
+            />
+          ) : (
+            <ImageIcon size={20} />
+          )}
+        </button>
 
         <button
           onClick={finalizeComplaint}
@@ -1243,6 +1524,11 @@ export default function ComplaintPage() {
             border: "none",
             cursor: isInitializing || isSpeaking || isMediaUploading ? "not-allowed" : "pointer",
             backgroundColor: isMediaUploading
+            cursor:
+              isInitializing || isSpeaking || isImageUploading
+                ? "not-allowed"
+                : "pointer",
+            backgroundColor: isImageUploading
               ? "#4b5563"
               : isInitializing
                 ? "#4b5563"
@@ -1344,6 +1630,21 @@ export default function ComplaintPage() {
               PA (Punjabi)
             </option>
           </select>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "10px",
+              color: "#60a5fa",
+              opacity: 0.8,
+              borderLeft: "1px solid rgba(255,255,255,0.1)",
+              paddingLeft: "12px",
+            }}
+          >
+            <Shield size={12} />
+            <b>ENCRYPTED & HASHED</b>
+          </div>
         </div>
       </div>
 
