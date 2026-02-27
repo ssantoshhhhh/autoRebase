@@ -74,6 +74,12 @@ export default function ComplaintPage() {
   const [isTextChatEnabled, setIsTextChatEnabled] = useState(false);
   const [textInput, setTextInput] = useState("");
 
+  // ── Age-adaptive state ─────────────────────────────────────────────────
+  const [isGreetingResponded, setIsGreetingResponded] = useState(false);
+  const [isAgeCollected, setIsAgeCollected] = useState(false);
+  const [userAge, setUserAge] = useState(null);
+  const [userCategory, setUserCategory] = useState(null); // "child" | "adult" | "senior"
+
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
   const imageFileRef = useRef(null);
@@ -307,6 +313,68 @@ export default function ComplaintPage() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+
+    // helper: speak a text message
+    const speakReply = (replyText) => {
+      const voicePrefix = getLocale(language);
+      const voice =
+        voices.find((v) => v.lang.startsWith(voicePrefix)) ||
+        voices.find((v) => v.lang.startsWith("en-IN"));
+      stopSTT();
+      speak(replyText, voice);
+    };
+
+    // helper: add AI message bubble
+    const addAIMsg = (replyText) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          text: replyText,
+          role: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+    };
+
+    // ── STEP 1: First user reply → ask for age ─────────────────────────────
+    if (!isGreetingResponded) {
+      setIsGreetingResponded(true);
+      const q = "Before we continue, may I know your age?";
+      addAIMsg(q);
+      speakReply(q);
+      return;
+    }
+
+    // ── STEP 2: Collect and validate age ───────────────────────────────
+    if (!isAgeCollected) {
+      const ageMatch = text.match(/\d+/);
+      const age = ageMatch ? parseInt(ageMatch[0], 10) : null;
+
+      if (!age || age < 1 || age > 120) {
+        const retry = "I didn't catch a valid age. Could you please tell me your age? (1–120)";
+        addAIMsg(retry);
+        speakReply(retry);
+        return;
+      }
+
+      const category = age < 18 ? "child" : age <= 60 ? "adult" : "senior";
+      setUserAge(age);
+      setUserCategory(category);
+      setIsAgeCollected(true);
+
+      const confirmations = {
+        child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
+        adult: "Thank you. Let's proceed with your complaint. How can I help you today?",
+        senior: "Thank you. I will guide you step by step. How can I help you today?",
+      };
+      const confirm = confirmations[category];
+      addAIMsg(confirm);
+      speakReply(confirm);
+      return;
+    }
+
+    // ── STEP 3: Normal AI conversation ────────────────────────────────
     setIsLoading(true);
 
     try {
@@ -325,6 +393,8 @@ export default function ComplaintPage() {
           ? `${user.policeStation.stationName}, ${user.policeStation.district}`
           : "Unknown",
         history: history.slice(-5), // Send last 5 messages for context
+        userAge: userAge,
+        userCategory: userCategory, // "child" | "adult" | "senior"
       };
 
       // Call backend chat API instead of direct OpenAI call
