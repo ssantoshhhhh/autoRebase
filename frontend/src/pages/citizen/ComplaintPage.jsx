@@ -430,7 +430,12 @@ export default function ComplaintPage() {
     // ── STEP 1: First user reply → ask for age ─────────────────────────────
     if (!isGreetingResponded) {
       setIsGreetingResponded(true);
-      const q = "Before we continue, may I know your age?";
+      const ageQuestions = {
+        en: "Before we continue, may I know your age?",
+        hi: "आगे बढ़ने से पहले, क्या मैं आपकी उम्र जान सकता हूँ?",
+        te: "కొనసాగడానికి ముందు, మీ వయస్సు చెప్పగలరా?",
+      };
+      const q = ageQuestions[language] || ageQuestions.en;
       addAIMsg(q);
       speakReply(q);
       return;
@@ -442,7 +447,12 @@ export default function ComplaintPage() {
       const age = ageMatch ? parseInt(ageMatch[0], 10) : null;
 
       if (!age || age < 1 || age > 120) {
-        const retry = "I didn't catch a valid age. Could you please tell me your age? (1–120)";
+        const retryMessages = {
+          en: "I didn't catch a valid age. Could you please tell me your age? (1–120)",
+          hi: "मुझे सही उम्र समझ नहीं आई। कृपया अपनी उम्र बताएं? (1–120)",
+          te: "సరైన వయస్సు అర్థం కాలేదు. దయచేసి మీ వయస్సు చెప్పగలరా? (1–120)",
+        };
+        const retry = retryMessages[language] || retryMessages.en;
         addAIMsg(retry);
         speakReply(retry);
         return;
@@ -455,11 +465,24 @@ export default function ComplaintPage() {
       ageMessageIdRef.current = userMsg.id; // remember which message contained the age
 
       const confirmations = {
-        child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
-        adult: "Thank you. Let's proceed with your complaint. How can I help you today?",
-        senior: "Thank you. I will guide you step by step. How can I help you today?",
+        en: {
+          child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
+          adult: "Thank you. Let's proceed with your complaint. How can I help you today?",
+          senior: "Thank you. I will guide you step by step. How can I help you today?",
+        },
+        hi: {
+          child: "धन्यवाद, प्रिय। मैं आपको सरल और सुरक्षित तरीके से मार्गदर्शन करूंगा। अब, मैं आज आपकी कैसे मदद कर सकता हूँ?",
+          adult: "धन्यवाद। चलिए आपकी शिकायत दर्ज करते हैं। मैं आज आपकी कैसे मदद कर सकता हूँ?",
+          senior: "धन्यवाद। मैं आपको एक-एक कदम से मार्गदर्शन करूंगा। मैं आज आपकी कैसे मदद कर सकता हूँ?",
+        },
+        te: {
+          child: "ధన్యవాదాలు, నేస్తమా. నేను మీకు సులభంగా మరియు సురక్షితంగా మార్గదర్శనం చేస్తాను. ఇప్పుడు, నేను మీకు ఎలా సహాయపడగలను?",
+          adult: "ధన్యవాదాలు. మీ ఫిర్యాదు నమోదు చేద్దాం. నేను మీకు ఎలా సహాయపడగలను?",
+          senior: "ధన్యవాదాలు. నేను మీకు అడుగడుగూ మార్గదర్శనం చేస్తాను. నేను మీకు ఎలా సహాయపడగలను?",
+        },
       };
-      const confirm = confirmations[category];
+      const langConfirm = confirmations[language] || confirmations.en;
+      const confirm = langConfirm[category];
       addAIMsg(confirm);
       speakReply(confirm);
       return;

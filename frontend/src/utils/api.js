@@ -9,10 +9,25 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
+    // If a header is already manually set, don't overwrite it
+    if (config.headers.Authorization) {
+      return config;
+    }
+
     // Determine which token to use based on target URL
     const isPoliceRoute = config.url.startsWith('/api/police');
-    const tokenKey = isPoliceRoute ? 'reva_police_token' : 'reva_token';
-    const token = localStorage.getItem(tokenKey);
+    const isSharedRoute = config.url.startsWith('/api/evidence') || config.url.startsWith('/api/stations');
+    
+    let token = null;
+    
+    if (isPoliceRoute) {
+      token = localStorage.getItem('reva_police_token');
+    } else if (isSharedRoute) {
+      // For shared routes, prefer police token if it exists, otherwise use citizen token
+      token = localStorage.getItem('reva_police_token') || localStorage.getItem('reva_token');
+    } else {
+      token = localStorage.getItem('reva_token');
+    }
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`

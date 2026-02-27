@@ -20,6 +20,7 @@ import StationManagement from "./pages/police/StationManagement";
 import CrimeMap from "./pages/police/CrimeMap";
 import ComplaintsListPage from "./pages/police/ComplaintsListPage";
 import SimpleCaseFile from "./pages/police/SimpleCaseFile";
+import LinkedComplaintsPage from "./pages/police/LinkedComplaintsPage";
 
 function CitizenRoute({ children }) {
   const { user, loading } = useAuth();

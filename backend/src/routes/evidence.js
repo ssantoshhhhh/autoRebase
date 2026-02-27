@@ -6,6 +6,8 @@ const { getPresignedUrl } = require('../services/s3Service');
 const { authenticateUser, authenticatePolice } = require('../middleware/auth');
 const { logger } = require('../utils/logger');
 
+const jwt = require('jsonwebtoken');
+
 const router = express.Router();
 
 /**
@@ -19,23 +21,36 @@ router.get('/:id/url', async (req, res, next) => {
         let requesterId = null;
         let isPolice = false;
 
-        // Try citizen auth
+        const token = req.cookies.accessToken || 
+                      req.cookies.policeAccessToken ||
+                      req.headers.authorization?.replace('Bearer ', '');
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Authentication required.' });
+        }
+
         try {
-            await new Promise((resolve, reject) => {
-                authenticateUser(req, res, (err) => (err ? reject(err) : resolve()));
-            });
-            requesterId = req.user?.id;
-        } catch {
-            // Try police auth
-            try {
-                await new Promise((resolve, reject) => {
-                    authenticatePolice(req, res, (err) => (err ? reject(err) : resolve()));
+            const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+            
+            if (decoded.type === 'POLICE') {
+                const police = await prisma.policeUser.findUnique({
+                    where: { id: decoded.policeUserId }
                 });
-                requesterId = req.policeUser?.id;
+                if (!police || !police.isActive) throw new Error('Invalid police account');
+                requesterId = police.id;
                 isPolice = true;
-            } catch {
-                return res.status(401).json({ error: 'Authentication required.' });
+                req.policeUser = police; // For logging
+            } else {
+                const user = await prisma.user.findUnique({
+                    where: { id: decoded.userId }
+                });
+                if (!user || !user.isVerified) throw new Error('Invalid user account');
+                requesterId = user.id;
+                isPolice = false;
+                req.user = user; // For logging
             }
+        } catch (authErr) {
+            return res.status(401).json({ error: 'Invalid or expired session' });
         }
 
         const evidence = await prisma.evidence.findUnique({
@@ -79,10 +94,25 @@ router.get('/:id/url', async (req, res, next) => {
  */
 router.get('/linked-complaints', async (req, res, next) => {
     try {
-        // Police auth required
-        await new Promise((resolve, reject) => {
-            authenticatePolice(req, res, (err) => (err ? reject(err) : resolve()));
-        });
+        const token = req.cookies.policeAccessToken || 
+                      req.headers.authorization?.replace('Bearer ', '');
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Police authentication required.' });
+        }
+
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+            if (decoded.type !== 'POLICE') throw new Error('Not a police token');
+            
+            const police = await prisma.policeUser.findUnique({
+                where: { id: decoded.policeUserId }
+            });
+            if (!police || !police.isActive) throw new Error('Invalid account');
+            req.policeUser = police;
+        } catch (authErr) {
+            return res.status(403).json({ error: 'Access denied: Police only route.' });
+        }
 
         const links = await prisma.complaintLink.findMany({
             orderBy: { createdAt: 'desc' },
@@ -141,9 +171,25 @@ router.get('/linked-complaints', async (req, res, next) => {
  */
 router.get('/matches/:evidenceId', async (req, res, next) => {
     try {
-        await new Promise((resolve, reject) => {
-            authenticatePolice(req, res, (err) => (err ? reject(err) : resolve()));
-        });
+        const token = req.cookies.policeAccessToken || 
+                      req.headers.authorization?.replace('Bearer ', '');
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Police authentication required.' });
+        }
+
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+            if (decoded.type !== 'POLICE') throw new Error('Not a police token');
+            
+            const police = await prisma.policeUser.findUnique({
+                where: { id: decoded.policeUserId }
+            });
+            if (!police || !police.isActive) throw new Error('Invalid account');
+            req.policeUser = police;
+        } catch (authErr) {
+            return res.status(403).json({ error: 'Access denied: Police only route.' });
+        }
 
         const matches = await prisma.evidenceMatch.findMany({
             where: {

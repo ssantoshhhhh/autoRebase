@@ -22,6 +22,7 @@ const geofenceRoutes = require('./routes/geofence');
 const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/users');
 const imageAnalysisRoutes = require('./routes/imageAnalysis');
+const evidenceRoutes = require('./routes/evidence');
 const chatRoutes = require('./routes/chat');
 
 const app = express();
@@ -105,6 +106,7 @@ app.use('/api/geofence', geofenceRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/image-analysis', imageAnalysisRoutes);
+app.use('/api/evidence', evidenceRoutes);
 app.use('/api/chat', chatRoutes);
 
 // 404 handler

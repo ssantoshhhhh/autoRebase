@@ -20,6 +20,151 @@ const STATUS_ORDER = [
   "CLOSED",
 ];
 
+const SUMMARY_STATUS_LABELS = {
+  FILED: "Filed",
+  UNDER_REVIEW: "Under Review",
+  ASSIGNED: "Assigned",
+  IN_PROGRESS: "In Progress",
+  ESCALATED: "Escalated",
+  RESOLVED: "Resolved",
+  CLOSED: "Closed",
+};
+
+function EvidenceCard({ item }) {
+  const [url, setUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchUrl = async () => {
+    if (url) return;
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/evidence/${item.id}/url`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("reva_police_token")}`,
+        },
+      });
+      setUrl(res.data.url);
+    } catch (err) {
+      toast.error("Failed to load evidence file");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isImage = item.mediaCategory === "IMAGE";
+  const isVideo = item.mediaCategory === "VIDEO";
+
+  return (
+    <div
+      className="card"
+      style={{
+        padding: "12px",
+        background: "var(--clr-bg-2)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        border: "1px solid var(--clr-border)",
+      }}
+    >
+      <div
+        style={{
+          height: "140px",
+          background: "var(--clr-bg)",
+          borderRadius: "8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          position: "relative",
+          cursor: "pointer",
+        }}
+        onClick={fetchUrl}
+      >
+        {url ? (
+          isImage ? (
+            <img
+              src={url}
+              alt={item.fileName}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : isVideo ? (
+            <video
+              src={url}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <div style={{ fontSize: "2rem" }}>📄</div>
+          )
+        ) : (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "1.5rem", marginBottom: "4px" }}>
+              {isImage ? "🖼️" : isVideo ? "📹" : "📄"}
+            </div>
+            <div style={{ fontSize: "0.7rem", color: "var(--clr-text-faint)" }}>
+              {loading ? "Loading..." : "Click to view"}
+            </div>
+          </div>
+        )}
+        {item.riskLevel && (
+          <div
+            style={{
+              position: "absolute",
+              top: "6px",
+              right: "6px",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              fontSize: "0.6rem",
+              fontWeight: 700,
+              background:
+                item.riskLevel === "Critical" || item.riskLevel === "High"
+                  ? "#ff3b30"
+                  : "#fbbf24",
+              color: "#fff",
+            }}
+          >
+            {item.riskLevel}
+          </div>
+        )}
+      </div>
+      <div>
+        <div
+          style={{
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={item.fileName}
+        >
+          {item.fileName}
+        </div>
+        <div
+          style={{
+            fontSize: "0.65rem",
+            color: "var(--clr-text-faint)",
+            marginTop: "2px",
+          }}
+        >
+          {item.mediaCategory} • {(item.fileSizeBytes / 1024 / 1024).toFixed(2)}{" "}
+          MB
+        </div>
+      </div>
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-ghost btn-xs"
+          style={{ fontSize: "0.7rem", marginTop: "4px" }}
+        >
+          Open Original ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function ComplaintDetailPage() {
   const { id } = useParams();
   const { policeUser } = useAuth();
@@ -502,6 +647,39 @@ export default function ComplaintDetailPage() {
                   )}
                 </div>
               </div>
+
+              {/* SECTION 1.5: EVIDENCE GALLERY */}
+              {complaint.evidence?.length > 0 && (
+                <div
+                  className="card no-print"
+                  style={{ border: "1px solid var(--clr-border-hover)" }}
+                >
+                  <h4
+                    style={{
+                      fontSize: "1.1rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "20px",
+                    }}
+                  >
+                    <span style={{ color: "var(--clr-primary)" }}>●</span>{" "}
+                    Evidence & Media Attachments
+                  </h4>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(180px, 1fr))",
+                      gap: "16px",
+                    }}
+                  >
+                    {complaint.evidence.map((ev) => (
+                      <EvidenceCard key={ev.id} item={ev} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* SECTION 2: FORMAL FIR REPORT */}
               <div

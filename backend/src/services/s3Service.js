@@ -6,10 +6,10 @@ const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 
 const s3Client = new S3Client({
-    region: process.env.S3_REGION || 'ap-south-1',
+    region: process.env.S3_REGION || process.env.AWS_REGION || 'ap-south-1',
     credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY,
-        secretAccessKey: process.env.S3_SECRET_KEY,
+        accessKeyId: process.env.S3_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.S3_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY,
     },
 });
 

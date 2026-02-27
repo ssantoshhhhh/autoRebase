@@ -63,11 +63,9 @@ router.get('/dashboard', superAdminScope, async (req, res, next) => {
   }
 });
 
-// GET /api/police/complaints
-// List complaints with filtering and pagination
 router.get('/complaints', superAdminScope, async (req, res, next) => {
   try {
-    const {
+    let {
       status,
       priority,
       assignedTo,
@@ -78,16 +76,32 @@ router.get('/complaints', superAdminScope, async (req, res, next) => {
       sortOrder = 'desc',
     } = req.query;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Sanitize inputs
+    page = Math.max(1, parseInt(page) || 1);
+    limit = Math.max(1, Math.min(100, parseInt(limit) || 20));
+    const skip = (page - 1) * limit;
+
+    // Validate sortOrder
+    if (!['asc', 'desc'].includes(sortOrder?.toLowerCase())) {
+      sortOrder = 'desc';
+    } else {
+      sortOrder = sortOrder.toLowerCase();
+    }
+
+    // Validate sortBy - only allow known fields to prevent injection/errors
+    const allowedSortFields = ['createdAt', 'priorityLevel', 'status', 'incidentType', 'trackingId'];
+    if (!allowedSortFields.includes(sortBy)) {
+      sortBy = 'createdAt';
+    }
 
     const where = { ...req.stationFilter };
 
-    if (status) where.status = status;
-    if (priority) where.priorityLevel = priority;
+    if (status && status.trim() !== '') where.status = status;
+    if (priority && priority.trim() !== '') where.priorityLevel = priority;
     if (assignedTo === 'me') where.assignedOfficerId = req.policeUser.id;
     if (assignedTo === 'unassigned') where.assignedOfficerId = null;
 
-    if (search) {
+    if (search && search.trim() !== '') {
       where.OR = [
         { trackingId: { contains: search, mode: 'insensitive' } },
         { incidentType: { contains: search, mode: 'insensitive' } },
@@ -106,7 +120,7 @@ router.get('/complaints', superAdminScope, async (req, res, next) => {
         },
         orderBy: { [sortBy]: sortOrder },
         skip,
-        take: parseInt(limit),
+        take: limit,
       }),
       prisma.complaint.count({ where }),
     ]);
@@ -115,12 +129,13 @@ router.get('/complaints', superAdminScope, async (req, res, next) => {
       complaints,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit)),
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
+    logger.error('Error in /api/police/complaints:', error);
     next(error);
   }
 });

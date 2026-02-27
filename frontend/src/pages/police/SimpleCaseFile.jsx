@@ -145,6 +145,71 @@ export default function SimpleCaseFile() {
             </pre>
           </>
         )}
+
+        {complaint.evidence?.length > 0 && (
+          <>
+            <h3
+              style={{
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: "10px",
+                marginBottom: "15px",
+                marginTop: "30px",
+              }}
+            >
+              Evidence Attachments
+            </h3>
+            <div style={{ display: "grid", gap: "10px" }}>
+              {complaint.evidence.map((ev) => (
+                <div
+                  key={ev.id}
+                  style={{
+                    background: "#0f172a",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>
+                      {ev.fileName}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "var(--clr-text-faint)",
+                      }}
+                    >
+                      {ev.mediaCategory} •{" "}
+                      {(ev.fileSizeBytes / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-xs"
+                    onClick={async () => {
+                      try {
+                        const res = await api.get(
+                          `/api/evidence/${ev.id}/url`,
+                          {
+                            headers: {
+                              Authorization: `Bearer ${localStorage.getItem("reva_police_token")}`,
+                            },
+                          },
+                        );
+                        window.open(res.data.url, "_blank");
+                      } catch (e) {
+                        toast.error("Failed to load evidence URL");
+                      }
+                    }}
+                  >
+                    View File
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
