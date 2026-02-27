@@ -14,7 +14,7 @@ router.use(authenticatePolice);
 router.get('/dashboard', superAdminScope, async (req, res, next) => {
   try {
     const filter = req.stationFilter;
-    
+
     const [
       total,
       emergency,
@@ -67,26 +67,26 @@ router.get('/dashboard', superAdminScope, async (req, res, next) => {
 // List complaints with filtering and pagination
 router.get('/complaints', superAdminScope, async (req, res, next) => {
   try {
-    const { 
-      status, 
-      priority, 
+    const {
+      status,
+      priority,
       assignedTo,
       search,
-      page = 1, 
+      page = 1,
       limit = 20,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.query;
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const where = { ...req.stationFilter };
-    
+
     if (status) where.status = status;
     if (priority) where.priorityLevel = priority;
     if (assignedTo === 'me') where.assignedOfficerId = req.policeUser.id;
     if (assignedTo === 'unassigned') where.assignedOfficerId = null;
-    
+
     if (search) {
       where.OR = [
         { trackingId: { contains: search, mode: 'insensitive' } },
@@ -127,52 +127,66 @@ router.get('/complaints', superAdminScope, async (req, res, next) => {
 
 // GET /api/police/complaints/:id
 // Full complaint detail
-router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
+router.get('/complaints/:id', async (req, res, next) => {
   try {
-    const complaint = await prisma.complaint.findFirst({
-      where: {
-        id: req.params.id,
-        ...req.stationFilter,
-      },
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: req.params.id },
       include: {
-        user: { 
-          select: { 
-            name: true, 
-            mobileNumber: true, 
+        user: {
+          select: {
+            name: true,
+            mobileNumber: true,
             aadhaarMasked: true,
             isAnonymous: true,
             complaintCount: true,
             riskFlagCount: true,
-          } 
+          }
         },
         assignedOfficer: { select: { name: true, email: true } },
         evidence: true,
         updates: { orderBy: { createdAt: 'asc' } },
-        station: { select: { stationName: true, district: true } },
+        station: { select: { id: true, stationName: true, district: true } },
       },
     });
 
-    if (!complaint) throw new AppError('Complaint not found or access denied', 404, 'NOT_FOUND');
+    if (!complaint) {
+      return res.status(404).json({ error: 'Complaint record not found in database', code: 'NOT_FOUND' });
+    }
+
+    // Authorization check: Only staff from same station or SUPER/GLOBAL_ADMINs can view
+    const isStationStaff = complaint.stationId === req.stationId;
+    const isPrivileged = ['SUPER_ADMIN', 'GLOBAL_ADMIN'].includes(req.policeUser.role);
+
+    if (!isStationStaff && !isPrivileged) {
+      logger.warn(`Unauthorized access attempt to complaint ${req.params.id} by officer ${req.policeUser.id}`);
+      return res.status(403).json({ 
+        error: 'Access denied: This complaint belongs to another jurisdiction', 
+        code: 'FORBIDDEN',
+        yourStation: req.policeUser.station?.stationName || 'Unknown',
+        targetStation: complaint.station?.stationName || 'Unknown'
+      });
+    }
 
     res.json(complaint);
   } catch (error) {
+    logger.error('Error fetching complaint detail:', error);
     next(error);
   }
 });
 
 // PATCH /api/police/complaints/:id/assign
-router.patch('/complaints/:id/assign', 
+router.patch('/complaints/:id/assign',
   enforceStationScope,
   requireRole('STATION_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
       const { officerId } = req.body;
-      
+
       // Verify officer belongs to same station
       const officer = await prisma.policeUser.findFirst({
         where: { id: officerId, stationId: req.stationId },
       });
-      
+
       if (!officer) throw new AppError('Officer not found in your station', 404, 'NOT_FOUND');
 
       const complaint = await prisma.complaint.findFirst({
@@ -182,7 +196,7 @@ router.patch('/complaints/:id/assign',
 
       const updated = await prisma.complaint.update({
         where: { id: req.params.id },
-        data: { 
+        data: {
           assignedOfficerId: officerId,
           status: 'ASSIGNED',
         },
@@ -208,7 +222,7 @@ router.patch('/complaints/:id/assign',
 router.patch('/complaints/:id/status', enforceStationScope, async (req, res, next) => {
   try {
     const { status, note } = req.body;
-    
+
     const validStatuses = ['UNDER_REVIEW', 'ASSIGNED', 'IN_PROGRESS', 'ESCALATED', 'RESOLVED', 'CLOSED', 'REJECTED'];
     if (!validStatuses.includes(status)) {
       throw new AppError('Invalid status', 400, 'INVALID_STATUS');
@@ -402,7 +416,7 @@ router.get('/me', async (req, res) => {
 router.patch('/station', enforceStationScope, requireRole('STATION_ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
   try {
     const { radiusKm, contactNumber } = req.body;
-    
+
     if (radiusKm && (isNaN(radiusKm) || radiusKm <= 0)) {
       throw new AppError('Invalid radius value', 400, 'INVALID_VALUE');
     }

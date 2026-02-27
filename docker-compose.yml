@@ -1,8 +1,12 @@
 version: "3.8"
 
 services:
+  # ── Database (pgvector-enabled) ──────────────────────────────────────────────
+  # Uses pgvector/pgvector image so the vector extension is available locally.
+  # Run `npm run prisma:migrate` against this to create all tables including
+  # persons_of_interest and detected_faces — no Supabase SQL Editor needed.
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: reva_postgres
     environment:
       POSTGRES_DB: reva_ai_db
@@ -26,6 +30,21 @@ services:
     volumes:
       - redis_data:/data
 
+  # ── Face Recognition Microservice ────────────────────────────────────────────
+  # InsightFace buffalo_l model. Downloads ~500MB on first run.
+  # Exposes POST /detect and GET /health on port 8001.
+  face_service:
+    build:
+      context: ./face_service
+      dockerfile: Dockerfile
+    container_name: reva_face_service
+    environment:
+      AI_SERVICE_SECRET: ${AI_SERVICE_SECRET:-internal-service-secret}
+    ports:
+      - "8001:8001"
+    volumes:
+      - insightface_models:/root/.insightface  # cache model weights across restarts
+
   backend:
     build:
       context: ./backend
@@ -34,7 +53,9 @@ services:
     env_file: ./backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/reva_ai_db
+      DIRECT_URL: postgresql://postgres:password@postgres:5432/reva_ai_db
       REDIS_HOST: redis
+      FACE_SERVICE_URL: http://face_service:8001
     ports:
       - "5000:5000"
     depends_on:
@@ -42,10 +63,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      face_service:
+        condition: service_started
     volumes:
       - ./backend:/app
       - /app/node_modules
 
+  # Citizen-facing frontend (port 3000)
   frontend:
     build:
       context: ./frontend
@@ -55,6 +79,7 @@ services:
       - "3000:80"
     depends_on:
       - backend
+
 
   nginx:
     image: nginx:alpine
@@ -71,3 +96,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  insightface_models:  # persistent volume so model isn't re-downloaded on every restart
+

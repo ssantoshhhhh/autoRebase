@@ -19,6 +19,7 @@ import AnalyticsPage from "./pages/police/AnalyticsPage";
 import StationManagement from "./pages/police/StationManagement";
 import CrimeMap from "./pages/police/CrimeMap";
 import ComplaintsListPage from "./pages/police/ComplaintsListPage";
+import SimpleCaseFile from "./pages/police/SimpleCaseFile";
 
 function CitizenRoute({ children }) {
   const { user, loading } = useAuth();
@@ -71,12 +72,12 @@ function LoadingScreen() {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public */}
+      {/* Public — Citizen */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/track/:trackingId?" element={<TrackingPage />} />
 
-      {/* Citizen Protected */}
+      {/* Protected — Citizen */}
       <Route
         path="/complaint"
         element={
@@ -93,9 +94,19 @@ function AppRoutes() {
           </CitizenRoute>
         }
       />
+      <Route
+        path="/profile"
+        element={
+          <CitizenRoute>
+            <ProfilePage />
+          </CitizenRoute>
+        }
+      />
 
-      {/* Police */}
+      {/* Public — Police */}
       <Route path="/police/login" element={<PoliceLoginPage />} />
+
+      {/* Protected — Police */}
       <Route
         path="/police/dashboard"
         element={
@@ -153,16 +164,16 @@ function AppRoutes() {
         }
       />
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
       <Route
-        path="/profile"
+        path="/police/view/:id"
         element={
-          <CitizenRoute>
-            <ProfilePage />
-          </CitizenRoute>
+          <PoliceRoute>
+            <SimpleCaseFile />
+          </PoliceRoute>
         }
       />
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

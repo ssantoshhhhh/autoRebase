@@ -48,6 +48,43 @@ export const getAIResponse = async (text, languageCode, context = {}) => {
   if (context.userName) contextStr += ` You are speaking to ${context.userName}.`;
   if (context.location) contextStr += ` The user is currently in ${context.location}.`;
   if (context.mobile) contextStr += ` Their verified mobile is ${context.mobile}.`;
+
+  // Age-adaptive behavior
+  if (context.userCategory === 'child') {
+    contextStr += `
+
+--- AGE PROFILE: CHILD (Age: ${context.userAge}) ---
+This user is a child. You MUST:
+- Use very simple, short sentences and easy words a child can understand.
+- Be warm, gentle, and highly reassuring at all times.
+- Avoid legal jargon or complex terminology entirely.
+- Use encouraging phrases like "You are doing great", "Don't worry, I am here to help you".
+- Prioritize emotional safety — make the child feel calm and protected.
+- Ask one simple question at a time and wait patiently.
+--- END AGE PROFILE ---`;
+  } else if (context.userCategory === 'senior') {
+    contextStr += `
+
+--- AGE PROFILE: SENIOR CITIZEN (Age: ${context.userAge}) ---
+This user is a senior citizen. You MUST:
+- Speak respectfully, calmly, and patiently at all times.
+- Use clear, simple language — avoid abbreviations and technical terms.
+- Provide step-by-step guidance, one step at a time.
+- Repeat or rephrase important instructions when needed.
+- Use phrases like "Please take your time", "You are doing very well".
+- Be extra patient and never rush the conversation.
+--- END AGE PROFILE ---`;
+  } else if (context.userCategory === 'adult') {
+    contextStr += `
+
+--- AGE PROFILE: ADULT (Age: ${context.userAge}) ---
+This user is an adult. You MUST:
+- Maintain a structured, professional, and efficient tone.
+- Be clear, concise, and factual.
+- Ask follow-up questions confidently to gather all required details quickly.
+- Use proper legal/police terminology where appropriate.
+--- END AGE PROFILE ---`;
+  }
   
   contextStr += ` You MUST reply ONLY in ${languageName}. Keep responses short, concise, and natural for voice synthesis. 
   Ask follow up questions one by one to gather complaint details: 1. Incident Type, 2. Location, 3. Description, 4. Date/Time.
