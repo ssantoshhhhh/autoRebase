@@ -11,7 +11,7 @@ router.use(authenticatePolice);
 
 // GET /api/police/dashboard
 // Station dashboard summary
-router.get('/dashboard', enforceStationScope, async (req, res, next) => {
+router.get('/dashboard', superAdminScope, async (req, res, next) => {
   try {
     const filter = req.stationFilter;
     
@@ -65,7 +65,7 @@ router.get('/dashboard', enforceStationScope, async (req, res, next) => {
 
 // GET /api/police/complaints
 // List complaints with filtering and pagination
-router.get('/complaints', enforceStationScope, async (req, res, next) => {
+router.get('/complaints', superAdminScope, async (req, res, next) => {
   try {
     const { 
       status, 
@@ -101,7 +101,7 @@ router.get('/complaints', enforceStationScope, async (req, res, next) => {
         include: {
           user: { select: { name: true, mobileNumber: true, isAnonymous: true } },
           assignedOfficer: { select: { name: true, email: true } },
-          evidence: { select: { id: true, fileType: true } },
+          evidence: { select: { id: true, mediaCategory: true } },
           _count: { select: { updates: true } },
         },
         orderBy: { [sortBy]: sortOrder },
@@ -127,7 +127,7 @@ router.get('/complaints', enforceStationScope, async (req, res, next) => {
 
 // GET /api/police/complaints/:id
 // Full complaint detail
-router.get('/complaints/:id', enforceStationScope, async (req, res, next) => {
+router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
   try {
     const complaint = await prisma.complaint.findFirst({
       where: {
@@ -259,6 +259,64 @@ router.patch('/complaints/:id/status', enforceStationScope, async (req, res, nex
     next(error);
   }
 });
+
+// PATCH /api/police/complaints/:id/migrate
+// Transfers complaint to another jurisdiction
+router.patch('/complaints/:id/migrate', 
+  requireRole('STATION_ADMIN', 'SUPER_ADMIN', 'GLOBAL_ADMIN'),
+  async (req, res, next) => {
+    try {
+      const { targetStationId, reason } = req.body;
+      
+      if (!targetStationId) throw new AppError('Target station ID required', 400, 'STATION_REQUIRED');
+
+      const complaint = await prisma.complaint.findUnique({
+        where: { id: req.params.id },
+        include: { station: true }
+      });
+
+      if (!complaint) throw new AppError('Complaint not found', 404, 'NOT_FOUND');
+
+      // Authorization check: Only superadmins or admins of the CURRENT station can migrate
+      if (req.policeUser.role === 'STATION_ADMIN' && complaint.stationId !== req.stationId) {
+        throw new AppError('Unauthorized to migrate complaints from other stations', 403, 'FORBIDDEN');
+      }
+
+      const targetStation = await prisma.policeStation.findUnique({
+        where: { id: targetStationId }
+      });
+      if (!targetStation) throw new AppError('Target station not found', 404, 'TARGET_NOT_FOUND');
+
+      const updated = await prisma.complaint.update({
+        where: { id: req.params.id },
+        data: { 
+          stationId: targetStationId,
+          assignedOfficerId: null, // Reset assignment on migration
+        },
+      });
+
+      await prisma.complaintUpdate.create({
+        data: {
+          complaintId: req.params.id,
+          updatedBy: req.policeUser.id,
+          updateType: 'STATUS_CHANGE',
+          content: `JURISDICTION MIGRATION: Transferred from ${complaint.station.stationName} to ${targetStation.stationName}. Reason: ${reason || 'Administrative reassignment'}`,
+        },
+      });
+
+      // Notify citizen
+      const citizen = await prisma.user.findUnique({ where: { id: complaint.userId } });
+      if (citizen && citizen.mobileNumber) {
+        const smsBody = `REVA ALERT: Your complaint ${complaint.trackingId} has been transferred to ${targetStation.stationName} for further investigation.`;
+        sendSMS(citizen.mobileNumber, smsBody).catch(e => logger.error('Migration SMS failed:', e));
+      }
+
+      res.json({ message: 'Complaint migrated successfully', complaint: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // POST /api/police/complaints/:id/notes
 router.post('/complaints/:id/notes', enforceStationScope, async (req, res, next) => {

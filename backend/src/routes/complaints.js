@@ -343,7 +343,7 @@ router.get('/:id', authenticateUser, async (req, res, next) => {
       include: {
         station: { select: { stationName: true, district: true, contactNumber: true } },
         updates: { orderBy: { createdAt: 'asc' } },
-        evidence: { select: { id: true, fileType: true, uploadedAt: true } },
+        evidence: { select: { id: true, mediaCategory: true, uploadedAt: true } },
       },
     });
 
