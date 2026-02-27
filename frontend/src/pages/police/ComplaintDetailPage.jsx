@@ -1024,7 +1024,7 @@ export default function ComplaintDetailPage() {
           {/* Evidence */}
           {complaint.evidence?.length > 0 && (
             <div className="card">
-              <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+              <h4 style={{ marginBottom: "16px", fontSize: "0.95rem" }}>
                 Evidence ({complaint.evidence.length})
               </h4>
               {complaint.evidence.map((e, i) => (

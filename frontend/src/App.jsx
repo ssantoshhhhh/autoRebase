@@ -55,12 +55,7 @@ function LoadingScreen() {
             margin: "0 auto 16px",
           }}
         />
-        <p
-          style={{
-            color: "var(--clr-text-muted)",
-            fontFamily: "var(--font-sans)",
-          }}
-        >
+        <p style={{ color: "var(--clr-text-muted)", fontFamily: "var(--font-sans)" }}>
           Loading REVA AI...
         </p>
       </div>
@@ -71,12 +66,12 @@ function LoadingScreen() {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public */}
+      {/* Public — Citizen */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/track/:trackingId?" element={<TrackingPage />} />
 
-      {/* Citizen Protected */}
+      {/* Protected — Citizen */}
       <Route
         path="/complaint"
         element={
@@ -93,9 +88,19 @@ function AppRoutes() {
           </CitizenRoute>
         }
       />
+      <Route
+        path="/profile"
+        element={
+          <CitizenRoute>
+            <ProfilePage />
+          </CitizenRoute>
+        }
+      />
 
-      {/* Police */}
+      {/* Public — Police */}
       <Route path="/police/login" element={<PoliceLoginPage />} />
+
+      {/* Protected — Police */}
       <Route
         path="/police/dashboard"
         element={
@@ -155,14 +160,6 @@ function AppRoutes() {
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
-      <Route
-        path="/profile"
-        element={
-          <CitizenRoute>
-            <ProfilePage />
-          </CitizenRoute>
-        }
-      />
     </Routes>
   );
 }

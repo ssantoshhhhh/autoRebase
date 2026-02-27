@@ -14,7 +14,7 @@ router.use(authenticatePolice);
 router.get('/dashboard', superAdminScope, async (req, res, next) => {
   try {
     const filter = req.stationFilter;
-    
+
     const [
       total,
       emergency,
@@ -67,26 +67,26 @@ router.get('/dashboard', superAdminScope, async (req, res, next) => {
 // List complaints with filtering and pagination
 router.get('/complaints', superAdminScope, async (req, res, next) => {
   try {
-    const { 
-      status, 
-      priority, 
+    const {
+      status,
+      priority,
       assignedTo,
       search,
-      page = 1, 
+      page = 1,
       limit = 20,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = req.query;
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const where = { ...req.stationFilter };
-    
+
     if (status) where.status = status;
     if (priority) where.priorityLevel = priority;
     if (assignedTo === 'me') where.assignedOfficerId = req.policeUser.id;
     if (assignedTo === 'unassigned') where.assignedOfficerId = null;
-    
+
     if (search) {
       where.OR = [
         { trackingId: { contains: search, mode: 'insensitive' } },
@@ -135,18 +135,25 @@ router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
         ...req.stationFilter,
       },
       include: {
-        user: { 
-          select: { 
-            name: true, 
-            mobileNumber: true, 
+        user: {
+          select: {
+            name: true,
+            mobileNumber: true,
             aadhaarMasked: true,
             isAnonymous: true,
             complaintCount: true,
             riskFlagCount: true,
-          } 
+          }
         },
         assignedOfficer: { select: { name: true, email: true } },
-        evidence: true,
+        evidence: {
+          include: {
+            detectedFaces: {
+              include: { personOfInterest: true },
+              orderBy: { detectedAt: 'desc' },
+            },
+          },
+        },
         updates: { orderBy: { createdAt: 'asc' } },
         station: { select: { stationName: true, district: true } },
       },
@@ -161,18 +168,18 @@ router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
 });
 
 // PATCH /api/police/complaints/:id/assign
-router.patch('/complaints/:id/assign', 
+router.patch('/complaints/:id/assign',
   enforceStationScope,
   requireRole('STATION_ADMIN', 'SUPER_ADMIN'),
   async (req, res, next) => {
     try {
       const { officerId } = req.body;
-      
+
       // Verify officer belongs to same station
       const officer = await prisma.policeUser.findFirst({
         where: { id: officerId, stationId: req.stationId },
       });
-      
+
       if (!officer) throw new AppError('Officer not found in your station', 404, 'NOT_FOUND');
 
       const complaint = await prisma.complaint.findFirst({
@@ -182,7 +189,7 @@ router.patch('/complaints/:id/assign',
 
       const updated = await prisma.complaint.update({
         where: { id: req.params.id },
-        data: { 
+        data: {
           assignedOfficerId: officerId,
           status: 'ASSIGNED',
         },
@@ -208,7 +215,7 @@ router.patch('/complaints/:id/assign',
 router.patch('/complaints/:id/status', enforceStationScope, async (req, res, next) => {
   try {
     const { status, note } = req.body;
-    
+
     const validStatuses = ['UNDER_REVIEW', 'ASSIGNED', 'IN_PROGRESS', 'ESCALATED', 'RESOLVED', 'CLOSED', 'REJECTED'];
     if (!validStatuses.includes(status)) {
       throw new AppError('Invalid status', 400, 'INVALID_STATUS');
@@ -402,7 +409,7 @@ router.get('/me', async (req, res) => {
 router.patch('/station', enforceStationScope, requireRole('STATION_ADMIN', 'SUPER_ADMIN'), async (req, res, next) => {
   try {
     const { radiusKm, contactNumber } = req.body;
-    
+
     if (radiusKm && (isNaN(radiusKm) || radiusKm <= 0)) {
       throw new AppError('Invalid radius value', 400, 'INVALID_VALUE');
     }
