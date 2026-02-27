@@ -84,6 +84,9 @@ export default function ComplaintPage() {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedText, setEditedText] = useState("");
 
+  // ── Age message tracking ─────────────────────────────────────────────
+  const ageMessageIdRef = useRef(null);
+
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
   const imageFileRef = useRef(null);
@@ -131,6 +134,24 @@ export default function ComplaintPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   useEffect(scrollToBottom, [messages, interimTranscript, isLoading]);
+
+  // ── Refresh / tab-close guard ───────────────────────────────────────────
+  // Always warn when leaving the complaint page — browser dialog on F5/Ctrl-R/close
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "Your complaint session will be lost. Are you sure you want to leave?";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // ── Custom back-navigation confirmation modal state ─────────────────────
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const handleBackClick = () => setShowLeaveModal(true);
+  const confirmLeave = () => { setShowLeaveModal(false); navigate(-1); };
+  const cancelLeave = () => setShowLeaveModal(false);
 
   // Auto-enable mic after AI finishes speaking (Hands-free mode)
   const prevSpeakingRef = useRef(false);
@@ -311,8 +332,36 @@ export default function ComplaintPage() {
         },
       });
 
-      toast.success("Complaint filed successfully!");
-      navigate(`/citizen/my-complaints`);
+      const { trackingId, station, priority, isEmergency } = response.data;
+
+      // Build a summary by parsing user messages from the conversation
+      const userTexts = messages
+        .filter((m) => m.role === "user" && !m.type)
+        .map((m) => m.text)
+        .join(" | ");
+
+      // Add the complaint receipt as a special AI message bubble
+      const receiptMsg = {
+        id: (Date.now() + 2).toString(),
+        role: "ai",
+        type: "receipt",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        receipt: {
+          trackingId,
+          station: station || activeStation?.stationName,
+          district: activeStation?.district,
+          priority,
+          isEmergency,
+          incidentType: aiData?.incidentType || "AI Assistant Report",
+          location: aiData?.location || activeStation ? `${activeStation.stationName}, ${activeStation.district}` : "Detected",
+          description: aiData?.description || userTexts.slice(0, 200),
+          dateTime: aiData?.dateTime || new Date().toISOString(),
+          filedAt: new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }),
+        },
+      };
+
+      setMessages((prev) => [...prev, receiptMsg]);
+      toast.success("Complaint filed! Your tracking ID is " + trackingId);
     } catch (err) {
       toast.error(err.response?.data?.message || "Submission failed");
     } finally {
@@ -396,6 +445,7 @@ export default function ComplaintPage() {
       setUserAge(age);
       setUserCategory(category);
       setIsAgeCollected(true);
+      ageMessageIdRef.current = userMsg.id; // remember which message contained the age
 
       const confirmations = {
         child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
@@ -533,6 +583,21 @@ export default function ComplaintPage() {
     const trimmed = editedText.trim();
     if (!trimmed) return;
 
+    // If the user edited their age message, re-detect the age from the new text
+    let effectiveAge = userAge;
+    let effectiveCategory = userCategory;
+    if (msgId === ageMessageIdRef.current) {
+      const ageMatch = trimmed.match(/\d+/);
+      const parsedAge = ageMatch ? parseInt(ageMatch[0], 10) : null;
+      if (parsedAge && parsedAge >= 1 && parsedAge <= 120) {
+        const newCategory = parsedAge < 18 ? "child" : parsedAge <= 60 ? "adult" : "senior";
+        effectiveAge = parsedAge;
+        effectiveCategory = newCategory;
+        setUserAge(parsedAge);
+        setUserCategory(newCategory);
+      }
+    }
+
     // 1. Update the user message in-place
     setMessages((prev) =>
       prev.map((m) => (m.id === msgId ? { ...m, text: trimmed } : m))
@@ -562,8 +627,8 @@ export default function ComplaintPage() {
           ? `${user.policeStation.stationName}, ${user.policeStation.district}`
           : "Unknown",
         history: history.slice(-5),
-        userAge,
-        userCategory,
+        userAge: effectiveAge,
+        userCategory: effectiveCategory,
       };
 
       const response = await api.post("/api/chat", {
@@ -2326,6 +2391,62 @@ export default function ComplaintPage() {
       </div>
 
       {/* ── In-browser Camera Modal ─────────────────────────────────────── */}
+      {/* ── Leave Confirmation Modal ───────────────────────── */}
+      {showLeaveModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(6px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "24px",
+        }}>
+          <div style={{
+            background: "#111827",
+            border: "1px solid rgba(239,68,68,0.35)",
+            borderRadius: "20px",
+            padding: "32px 28px",
+            maxWidth: "380px",
+            width: "100%",
+            textAlign: "center",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>⚠️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: "1.15rem", color: "#f3f4f6" }}>
+              Leave complaint session?
+            </h3>
+            <p style={{ margin: "0 0 24px", fontSize: "0.85rem", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+              Your conversation will be lost and cannot be recovered. Are you sure you want to go back?
+            </p>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={cancelLeave}
+                style={{
+                  flex: 1, padding: "12px",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "12px", color: "white",
+                  fontWeight: "600", cursor: "pointer", fontSize: "0.9rem",
+                }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={confirmLeave}
+                style={{
+                  flex: 1, padding: "12px",
+                  background: "rgba(239,68,68,0.85)",
+                  border: "1px solid rgba(239,68,68,0.5)",
+                  borderRadius: "12px", color: "white",
+                  fontWeight: "700", cursor: "pointer", fontSize: "0.9rem",
+                }}
+              >
+                Yes, Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCameraModal && (
         <div
           style={{
