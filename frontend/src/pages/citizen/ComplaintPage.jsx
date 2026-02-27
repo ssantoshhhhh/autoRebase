@@ -370,16 +370,16 @@ export default function ComplaintPage() {
       );
       const result = await response.json();
 
-      // Log full result to SERVER console only
+      // Log full result to browser console only
       console.log("[Image Analysis Result]", JSON.stringify(result, null, 2));
 
-      // 2) Mark image as done loading
+      // Mark image as done loading
       setMessages((prev) =>
         prev.map((m) => m.id === imgId ? { ...m, loading: false } : m)
       );
 
       if (result.success && result.module1?.status === "completed") {
-        toast.success("Analysis complete — check server console for result.");
+        toast.success("Analysis complete — check server logs for full report.");
       } else {
         toast.error(result.module1?.error || "Analysis failed.");
       }
