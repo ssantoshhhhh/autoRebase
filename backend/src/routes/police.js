@@ -127,13 +127,10 @@ router.get('/complaints', superAdminScope, async (req, res, next) => {
 
 // GET /api/police/complaints/:id
 // Full complaint detail
-router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
+router.get('/complaints/:id', async (req, res, next) => {
   try {
-    const complaint = await prisma.complaint.findFirst({
-      where: {
-        id: req.params.id,
-        ...req.stationFilter,
-      },
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: req.params.id },
       include: {
         user: {
           select: {
@@ -146,23 +143,33 @@ router.get('/complaints/:id', superAdminScope, async (req, res, next) => {
           }
         },
         assignedOfficer: { select: { name: true, email: true } },
-        evidence: {
-          include: {
-            detectedFaces: {
-              include: { personOfInterest: true },
-              orderBy: { detectedAt: 'desc' },
-            },
-          },
-        },
+        evidence: true,
         updates: { orderBy: { createdAt: 'asc' } },
-        station: { select: { stationName: true, district: true } },
+        station: { select: { id: true, stationName: true, district: true } },
       },
     });
 
-    if (!complaint) throw new AppError('Complaint not found or access denied', 404, 'NOT_FOUND');
+    if (!complaint) {
+      return res.status(404).json({ error: 'Complaint record not found in database', code: 'NOT_FOUND' });
+    }
+
+    // Authorization check: Only staff from same station or SUPER/GLOBAL_ADMINs can view
+    const isStationStaff = complaint.stationId === req.stationId;
+    const isPrivileged = ['SUPER_ADMIN', 'GLOBAL_ADMIN'].includes(req.policeUser.role);
+
+    if (!isStationStaff && !isPrivileged) {
+      logger.warn(`Unauthorized access attempt to complaint ${req.params.id} by officer ${req.policeUser.id}`);
+      return res.status(403).json({ 
+        error: 'Access denied: This complaint belongs to another jurisdiction', 
+        code: 'FORBIDDEN',
+        yourStation: req.policeUser.station?.stationName || 'Unknown',
+        targetStation: complaint.station?.stationName || 'Unknown'
+      });
+    }
 
     res.json(complaint);
   } catch (error) {
+    logger.error('Error fetching complaint detail:', error);
     next(error);
   }
 });

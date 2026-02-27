@@ -45,21 +45,50 @@ export default function ComplaintDetailPage() {
   }, [id]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const [cRes, oRes, sRes] = await Promise.all([
-        api.get(`/api/police/complaints/${id}`, { headers }),
-        ["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role)
-          ? api.get("/api/police/officers", { headers })
-          : Promise.resolve({ data: { officers: [] } }),
-        api.get("/api/stations"),
-      ]);
+      // Fetch complaint first as it's critical
+      const cRes = await api.get(`/api/police/complaints/${id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("reva_police_token")}`,
+        },
+      });
       setComplaint(cRes.data);
-      setOfficers(oRes.data.officers || []);
-      setStations(sRes.data.stations || []);
       setSelectedStatus(cRes.data.status);
+
+      // Fetch other data secondary
+      try {
+        if (["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role)) {
+          const oRes = await api.get("/api/police/officers", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("reva_police_token")}`,
+            },
+          });
+          setOfficers(oRes.data.officers || []);
+        }
+      } catch (e) {
+        console.warn("Failed to load officers", e);
+      }
+
+      try {
+        const sRes = await api.get("/api/stations");
+        setStations(sRes.data.stations || []);
+      } catch (e) {
+        console.warn("Failed to load stations", e);
+      }
     } catch (err) {
-      toast.error("Complaint not found or access denied");
-      navigate("/police/dashboard");
+      const errorMsg =
+        err.response?.data?.error || "Failed to load complaint details";
+      toast.error(errorMsg);
+      console.error("Fetch Error:", err.response?.data || err.message);
+
+      // Don't navigate away immediately if it's an auth error we want to see
+      if (err.response?.status === 401) {
+        navigate("/police/login");
+      } else if (err.response?.status === 404) {
+        // Only navigate back if it's truly missing
+        setTimeout(() => navigate("/police/dashboard"), 3000);
+      }
     } finally {
       setLoading(false);
     }
