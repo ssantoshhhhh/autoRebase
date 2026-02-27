@@ -29,6 +29,8 @@ import {
   Loader2,
   AlertTriangle,
   ShieldAlert,
+  Camera,
+  FolderOpen,
 } from "lucide-react";
 
 export default function ComplaintPage() {
@@ -64,13 +66,20 @@ export default function ComplaintPage() {
   const [availableStations, setAvailableStations] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isImageUploading, setIsImageUploading] = useState(false);
-  const [textInput, setTextInput] = useState("");
-  const [isTextChatEnabled, setIsTextChatEnabled] = useState(false);
+  const [isMediaUploading, setIsMediaUploading] = useState(false);
+  const [showMediaMenu, setShowMediaMenu] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraMode, setCameraMode] = useState("photo"); // "photo" | "video"
+  const [isRecording, setIsRecording] = useState(false);
 
   const messagesEndRef = useRef(null);
   const shouldProcessRef = useRef(false);
   const imageFileRef = useRef(null);
+  const cameraPhotoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const cameraVideoElRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
   const getLocale = (lang) => {
     const locales = {
@@ -136,6 +145,32 @@ export default function ComplaintPage() {
     startSTT,
     resetTranscript,
   ]);
+
+  const [isSecureHandshakeComplete, setIsSecureHandshakeComplete] =
+    useState(false);
+  const [handshakeStep, setHandshakeStep] = useState(0);
+
+  useEffect(() => {
+    const steps = [
+      "ESTABLISHING E2EE CHANNEL...",
+      "SCANNING FOR VPN LEAKS...",
+      "VERIFYING DEVICE INTEGRITY...",
+      "CYBER-SEC PROTOCOL ACTIVE",
+    ];
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      if (currentStep < steps.length - 1) {
+        currentStep++;
+        setHandshakeStep(currentStep);
+      } else {
+        clearInterval(interval);
+        setTimeout(() => setIsSecureHandshakeComplete(true), 800);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleToggleListening = () => {
     if (isListening) {
@@ -334,6 +369,46 @@ export default function ComplaintPage() {
 
       // Trigger automatic submission if signal detected
       if (aiData) {
+        // --- CYBER SECURITY: REAL-TIME THREAT MONITORING ---
+        const cyberKeywords = [
+          "phishing",
+          "fraud",
+          "hacker",
+          "scam",
+          "otp",
+          "link",
+          "bullying",
+          "harassment",
+          "financial",
+          "bank",
+        ];
+        const isCyberRelated = cyberKeywords.some(
+          (k) =>
+            aiData.incidentType?.toLowerCase().includes(k) ||
+            aiData.description?.toLowerCase().includes(k),
+        );
+
+        if (isCyberRelated) {
+          toast(
+            (t) => (
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <Shield size={20} color="#60a5fa" />
+                <div>
+                  <b>Cyber-Security Protocol Activated</b>
+                  <div style={{ fontSize: "12px" }}>
+                    Incident classified in Cyber-Domain. Advising 1930
+                    reporting.
+                  </div>
+                </div>
+              </span>
+            ),
+            { duration: 6000, position: "top-center" },
+          );
+        }
+        // ----------------------------------------------------
+
         setTimeout(() => {
           finalizeComplaint(aiData);
         }, 2000); // Small delay to let user hear the "filing" message
@@ -344,65 +419,190 @@ export default function ComplaintPage() {
     }
   };
 
-  // ── Image Upload & Analysis ─────────────────────────────────────────────────
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    imageFileRef.current.value = "";
+  // ── Camera Modal ────────────────────────────────────────────────────────────
+  const openCameraModal = async () => {
+    setShowMediaMenu(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
+      });
+      cameraStreamRef.current = stream;
+      setShowCameraModal(true);
+      // Wait for modal to render then attach stream
+      setTimeout(() => {
+        if (cameraVideoElRef.current) {
+          cameraVideoElRef.current.srcObject = stream;
+          cameraVideoElRef.current.play();
+        }
+      }, 80);
+    } catch (err) {
+      toast.error("Camera access denied or unavailable.");
+    }
+  };
 
+  const closeCameraModal = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    }
+    setIsRecording(false);
+    setShowCameraModal(false);
+    setCameraMode("photo");
+  };
+
+  const capturePhoto = () => {
+    const video = cameraVideoElRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+      closeCameraModal();
+      handleCapturedFile(file);
+    }, "image/jpeg", 0.92);
+  };
+
+  const startRecording = () => {
+    if (!cameraStreamRef.current) return;
+    recordedChunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : "video/webm";
+    const recorder = new MediaRecorder(cameraStreamRef.current, { mimeType });
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+      const file = new File([blob], `video_${Date.now()}.webm`, { type: "video/webm" });
+      closeCameraModal();
+      handleCapturedFile(file);
+    };
+    mediaRecorderRef.current = recorder;
+    recorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleCapturedFile = async (file) => {
     const previewUrl = URL.createObjectURL(file);
-    const imgId = Date.now().toString();
-
-    // 1) Show image bubble immediately with loading=true
+    const mediaId = Date.now().toString();
+    const isVideo = file.type.startsWith("video/");
     setMessages((prev) => [
       ...prev,
       {
-        id: imgId,
+        id: mediaId,
         role: "user",
-        type: "image",
+        type: isVideo ? "video" : "image",
         imageUrl: previewUrl,
         fileName: file.name,
         loading: true,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
-
-    setIsImageUploading(true);
+    setIsMediaUploading(true);
     try {
       const formData = new FormData();
       formData.append("image", file);
-
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
         { method: "POST", body: formData }
       );
       const result = await response.json();
-
-      // Log full result to SERVER console only
-      console.log("[Image Analysis Result]", JSON.stringify(result, null, 2));
-
-      // 2) Mark image as done loading
-      setMessages((prev) =>
-        prev.map((m) => m.id === imgId ? { ...m, loading: false } : m)
-      );
-
+      console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
+      setMessages((prev) => prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m));
       if (result.success && result.module1?.status === "completed") {
         toast.success("Analysis complete — check server console for result.");
       } else {
         toast.error(result.module1?.error || "Analysis failed.");
       }
     } catch (err) {
-      console.error("[Image Analysis Error]", err);
+      console.error("[Media Analysis Error]", err);
+      setMessages((prev) => prev.map((m) => m.id === mediaId ? { ...m, loading: false } : m));
+      toast.error("Failed to connect to analysis service.");
+    } finally {
+      setIsMediaUploading(false);
+    }
+  };
+
+  // ── Media Upload & Analysis (file-picker path) ──────────────────────────────
+  const handleMediaUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset all file inputs so the same file can be re-selected
+    [imageFileRef, cameraPhotoRef].forEach((r) => {
+      if (r.current) r.current.value = "";
+    });
+
+    const previewUrl = URL.createObjectURL(file);
+    const mediaId = Date.now().toString();
+    const isVideo = file.type.startsWith("video/");
+
+    // Show media bubble immediately with loading=true
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: mediaId,
+        role: "user",
+        type: isVideo ? "video" : "image",
+        imageUrl: previewUrl,
+        fileName: file.name,
+        loading: true,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    ]);
+
+    setIsMediaUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/image-analysis/analyze`,
+        { method: "POST", body: formData },
+      );
+      const result = await response.json();
+
+      console.log("[Media Analysis Result]", JSON.stringify(result, null, 2));
+
+      // Mark image as done loading
       setMessages((prev) =>
-        prev.map((m) => m.id === imgId ? { ...m, loading: false } : m)
+        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
+      );
+
+      if (result.success && result.module1?.status === "completed") {
+        toast.success("Analysis complete — check server logs for full report.");
+      } else {
+        toast.error(result.module1?.error || "Analysis failed.");
+      }
+    } catch (err) {
+      console.error("[Media Analysis Error]", err);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === mediaId ? { ...m, loading: false } : m)),
       );
       toast.error("Failed to connect to analysis service.");
     } finally {
-      setIsImageUploading(false);
+      setIsMediaUploading(false);
     }
   };
 
   return (
+    <>
     <div
       style={{
         height: "100vh",
@@ -415,6 +615,79 @@ export default function ComplaintPage() {
         fontFamily: "sans-serif",
       }}
     >
+      {/* HANDSHAKE OVERLAY (Hackathon-winning Cyber Security feature) */}
+      {!isSecureHandshakeComplete && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: "#080c14",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "24px",
+          }}
+        >
+          {/* Animated Tech Ring */}
+          <div
+            style={{
+              width: "120px",
+              height: "120px",
+              borderRadius: "50%",
+              border: "2px solid rgba(59, 130, 246, 0.1)",
+              borderTop: "3px solid #3b82f6",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              animation: "spin 1s linear infinite",
+              boxShadow: "0 0 20px rgba(59, 130, 246, 0.2)",
+            }}
+          >
+            <Shield size={64} className="animate-pulse" color="#3b82f6" />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: "monospace",
+                color: "#60a5fa",
+                fontSize: "12px",
+                letterSpacing: "2px",
+                marginBottom: "8px",
+              }}
+            >
+              {
+                [
+                  "ESTABLISHING E2EE CHANNEL...",
+                  "SCANNING FOR VPN LEAKS...",
+                  "VERIFYING DEVICE INTEGRITY...",
+                  "CYBER-SEC PROTOCOL ACTIVE",
+                ][handshakeStep]
+              }
+            </div>
+            <div
+              style={{
+                width: "200px",
+                height: "2px",
+                backgroundColor: "rgba(255,255,255,0.05)",
+                borderRadius: "10px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${(handshakeStep + 1) * 25}%`,
+                  backgroundColor: "#3b82f6",
+                  transition: "width 0.5s ease",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Background Blobs (Premium Look) */}
       <div
         style={{
@@ -458,6 +731,44 @@ export default function ComplaintPage() {
         <div className="ai-orb-core"></div>
       </div>
 
+      {/* ── Floating Back Button ── always visible top-left */}
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          position: "fixed",
+          top: "18px",
+          left: "20px",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          background: "linear-gradient(135deg, rgba(139,92,246,0.55), rgba(37,99,235,0.45))",
+          border: "1px solid rgba(167,139,250,0.6)",
+          color: "#f3f0ff",
+          cursor: "pointer",
+          padding: "9px 18px",
+          borderRadius: "14px",
+          fontSize: "13px",
+          fontWeight: "800",
+          letterSpacing: "0.4px",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 4px 20px rgba(139,92,246,0.35)",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.8), rgba(37,99,235,0.7))";
+          e.currentTarget.style.boxShadow = "0 6px 28px rgba(139,92,246,0.55)";
+          e.currentTarget.style.transform = "translateX(-3px)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.55), rgba(37,99,235,0.45))";
+          e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.35)";
+          e.currentTarget.style.transform = "translateX(0)";
+        }}
+      >
+        &#8592; Back
+      </button>
+
       {/* Header */}
       <header
         style={{
@@ -473,6 +784,48 @@ export default function ComplaintPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(37,99,235,0.18))",
+              border: "1px solid rgba(139,92,246,0.45)",
+              color: "#c4b5fd",
+              cursor: "pointer",
+              padding: "7px 14px",
+              borderRadius: "12px",
+              fontSize: "12px",
+              fontWeight: "700",
+              letterSpacing: "0.5px",
+              backdropFilter: "blur(8px)",
+              boxShadow: "0 2px 12px rgba(139,92,246,0.2)",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.35), rgba(37,99,235,0.3))";
+              e.currentTarget.style.boxShadow = "0 4px 20px rgba(139,92,246,0.4)";
+              e.currentTarget.style.transform = "translateX(-2px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(37,99,235,0.18))";
+              e.currentTarget.style.boxShadow = "0 2px 12px rgba(139,92,246,0.2)";
+              e.currentTarget.style.transform = "translateX(0)";
+            }}
+          >
+            <span style={{
+              fontSize: "18px",
+              fontWeight: "900",
+              lineHeight: 1,
+              color: "#a78bfa",
+              marginRight: "2px",
+              display: "inline-block",
+            }}>&#8592;</span>
+            Back
+          </button>
+
           <div
             style={{
               width: "40px",
@@ -610,20 +963,33 @@ export default function ComplaintPage() {
                     width: "32px",
                     height: "32px",
                     borderRadius: "50%",
-                    backgroundColor: msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
+                    backgroundColor:
+                      msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.1)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  {msg.role === "user" ? <User size={16} /> : <Bot size={16} color="#60a5fa" />}
+                  {msg.role === "user" ? (
+                    <User size={16} />
+                  ) : (
+                    <Bot size={16} color="#60a5fa" />
+                  )}
                 </div>
 
                 {/* --- Image Message Bubble (with loading overlay) --- */}
                 {msg.type === "image" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <div style={{ position: "relative", display: "inline-block" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    <div
+                      style={{ position: "relative", display: "inline-block" }}
+                    >
                       <img
                         src={msg.imageUrl}
                         alt={msg.fileName}
@@ -639,21 +1005,42 @@ export default function ComplaintPage() {
                         }}
                       />
                       {msg.loading && (
-                        <div style={{
-                          position: "absolute",
-                          inset: 0,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "8px",
-                        }}>
-                          <Loader2 size={28} color="#a78bfa" style={{ animation: "spin 1s linear infinite" }} />
-                          <span style={{ fontSize: "10px", color: "#c4b5fd", fontWeight: 600, letterSpacing: "1px" }}>ANALYZING...</span>
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <Loader2
+                            size={28}
+                            color="#a78bfa"
+                            style={{ animation: "spin 1s linear infinite" }}
+                          />
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              color: "#c4b5fd",
+                              fontWeight: 600,
+                              letterSpacing: "1px",
+                            }}
+                          >
+                            ANALYZING...
+                          </span>
                         </div>
                       )}
                     </div>
-                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.3)",
+                        textAlign: "right",
+                      }}
+                    >
                       {msg.fileName} · {msg.timestamp}
                     </div>
                   </div>
@@ -675,7 +1062,14 @@ export default function ComplaintPage() {
                     }}
                   >
                     {/* Risk Badge */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginBottom: "10px",
+                      }}
+                    >
                       <div
                         style={{
                           padding: "3px 10px",
@@ -684,48 +1078,97 @@ export default function ComplaintPage() {
                           fontWeight: "700",
                           letterSpacing: "1px",
                           backgroundColor:
-                            msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Critical" ? "rgba(239,68,68,0.2)" :
-                              msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "High" ? "rgba(245,158,11,0.2)" :
-                                msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Medium" ? "rgba(234,179,8,0.15)" :
-                                  "rgba(16,185,129,0.15)",
+                            msg.analysisData.forensicAnalysis?.analysis
+                              ?.riskLevel === "Critical"
+                              ? "rgba(239,68,68,0.2)"
+                              : msg.analysisData.forensicAnalysis?.analysis
+                                    ?.riskLevel === "High"
+                                ? "rgba(245,158,11,0.2)"
+                                : msg.analysisData.forensicAnalysis?.analysis
+                                      ?.riskLevel === "Medium"
+                                  ? "rgba(234,179,8,0.15)"
+                                  : "rgba(16,185,129,0.15)",
                           color:
-                            msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Critical" ? "#ef4444" :
-                              msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "High" ? "#f59e0b" :
-                                msg.analysisData.forensicAnalysis?.analysis?.riskLevel === "Medium" ? "#eab308" :
-                                  "#10b981",
+                            msg.analysisData.forensicAnalysis?.analysis
+                              ?.riskLevel === "Critical"
+                              ? "#ef4444"
+                              : msg.analysisData.forensicAnalysis?.analysis
+                                    ?.riskLevel === "High"
+                                ? "#f59e0b"
+                                : msg.analysisData.forensicAnalysis?.analysis
+                                      ?.riskLevel === "Medium"
+                                  ? "#eab308"
+                                  : "#10b981",
                           border: "1px solid currentColor",
                         }}
                       >
                         {msg.analysisData.isAiGenerated
                           ? "🤖 AI GENERATED"
-                          : `⚠ ${msg.analysisData.forensicAnalysis?.analysis?.riskLevel?.toUpperCase() || "UNKNOWN"} RISK`
-                        }
+                          : `⚠ ${msg.analysisData.forensicAnalysis?.analysis?.riskLevel?.toUpperCase() || "UNKNOWN"} RISK`}
                       </div>
-                      <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}>Forensic Analysis</div>
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "rgba(255,255,255,0.3)",
+                        }}
+                      >
+                        Forensic Analysis
+                      </div>
                     </div>
 
                     {/* Overview */}
                     {msg.analysisData.forensicAnalysis?.overview && (
-                      <p style={{ color: "rgba(255,255,255,0.8)", lineHeight: "1.5", margin: "0 0 8px" }}>
+                      <p
+                        style={{
+                          color: "rgba(255,255,255,0.8)",
+                          lineHeight: "1.5",
+                          margin: "0 0 8px",
+                        }}
+                      >
                         {msg.analysisData.forensicAnalysis.overview}
                       </p>
                     )}
 
                     {/* AI Detection reason */}
                     {msg.analysisData.isAiGenerated && (
-                      <p style={{ color: "#f87171", fontSize: "0.8rem", margin: 0 }}>
+                      <p
+                        style={{
+                          color: "#f87171",
+                          fontSize: "0.8rem",
+                          margin: 0,
+                        }}
+                      >
                         {msg.analysisData.reason}
                       </p>
                     )}
 
                     {/* Risk reason */}
-                    {!msg.analysisData.isAiGenerated && msg.analysisData.forensicAnalysis?.analysis?.riskReason && (
-                      <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.78rem", margin: "4px 0 0", borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "8px" }}>
-                        {msg.analysisData.forensicAnalysis.analysis.riskReason}
-                      </p>
-                    )}
+                    {!msg.analysisData.isAiGenerated &&
+                      msg.analysisData.forensicAnalysis?.analysis
+                        ?.riskReason && (
+                        <p
+                          style={{
+                            color: "rgba(255,255,255,0.45)",
+                            fontSize: "0.78rem",
+                            margin: "4px 0 0",
+                            borderTop: "1px solid rgba(255,255,255,0.07)",
+                            paddingTop: "8px",
+                          }}
+                        >
+                          {
+                            msg.analysisData.forensicAnalysis.analysis
+                              .riskReason
+                          }
+                        </p>
+                      )}
 
-                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", marginTop: "8px" }}>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.2)",
+                        marginTop: "8px",
+                      }}
+                    >
                       {msg.timestamp} · {msg.analysisData.processingTimeMs}ms
                     </div>
                   </div>
@@ -747,8 +1190,14 @@ export default function ComplaintPage() {
                       maxWidth: "300px",
                     }}
                   >
-                    <AlertTriangle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
-                    <span>Analysis failed: {msg.errorMsg || "Unknown error"}</span>
+                    <AlertTriangle
+                      size={16}
+                      color="#ef4444"
+                      style={{ flexShrink: 0 }}
+                    />
+                    <span>
+                      Analysis failed: {msg.errorMsg || "Unknown error"}
+                    </span>
                   </div>
                 )}
 
@@ -757,20 +1206,32 @@ export default function ComplaintPage() {
                   <div
                     style={{
                       padding: "12px 18px",
-                      borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                      backgroundColor: msg.role === "user" ? "#4f46e5" : "rgba(255,255,255,0.05)",
+                      borderRadius:
+                        msg.role === "user"
+                          ? "20px 20px 4px 20px"
+                          : "20px 20px 20px 4px",
+                      backgroundColor:
+                        msg.role === "user"
+                          ? "#4f46e5"
+                          : "rgba(255,255,255,0.05)",
                       border: "1px solid rgba(255,255,255,0.1)",
                       fontSize: "0.95rem",
                       lineHeight: "1.5",
                     }}
                   >
                     {msg.text}
-                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", textAlign: "right", marginTop: "4px" }}>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.3)",
+                        textAlign: "right",
+                        marginTop: "4px",
+                      }}
+                    >
                       {msg.timestamp}
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           ))}
@@ -852,13 +1313,21 @@ export default function ComplaintPage() {
           boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
         }}
       >
-        {/* Hidden image file input */}
+        {/* Hidden inputs — gallery (image+video), camera photo, camera video */}
         <input
           ref={imageFileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/*,video/*"
           style={{ display: "none" }}
-          onChange={handleImageUpload}
+          onChange={handleMediaUpload}
+        />
+        <input
+          ref={cameraPhotoRef}
+          type="file"
+          accept="image/*,video/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={handleMediaUpload}
         />
 
         <button
@@ -874,28 +1343,99 @@ export default function ComplaintPage() {
           <Settings size={22} />
         </button>
 
-        {/* Media / Image Button */}
-        <button
-          onClick={() => imageFileRef.current?.click()}
-          disabled={isImageUploading}
-          title="Upload image for forensic analysis"
-          style={{
-            background: isImageUploading ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)",
-            border: "1px solid rgba(139,92,246,0.4)",
-            color: isImageUploading ? "rgba(255,255,255,0.3)" : "#a78bfa",
-            cursor: isImageUploading ? "not-allowed" : "pointer",
-            padding: "8px",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.2s",
-          }}
-        >
-          {isImageUploading
-            ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
-            : <ImageIcon size={20} />}
-        </button>
+        {/* Single Evidence Button + popup menu */}
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowMediaMenu((v) => !v)}
+            disabled={isMediaUploading}
+            title="Add evidence"
+            style={{
+              background: isMediaUploading ? "rgba(255,255,255,0.05)" : "rgba(139,92,246,0.15)",
+              border: "1px solid rgba(139,92,246,0.4)",
+              color: isMediaUploading ? "rgba(255,255,255,0.3)" : "#a78bfa",
+              cursor: isMediaUploading ? "not-allowed" : "pointer",
+              padding: "8px",
+              borderRadius: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s",
+            }}
+          >
+            {isMediaUploading
+              ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+              : <ImageIcon size={20} />}
+          </button>
+
+          {showMediaMenu && !isMediaUploading && (
+            <>
+              {/* Backdrop — clicking outside closes menu */}
+              <div
+                onClick={() => setShowMediaMenu(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 40,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 10px)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "rgba(20,10,40,0.97)",
+                  border: "1px solid rgba(139,92,246,0.4)",
+                  borderRadius: "14px",
+                  padding: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                  minWidth: "170px",
+                  zIndex: 50,
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                }}
+              >
+                {/* Camera — opens live camera modal */}
+                <button
+                  onClick={openCameraModal}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "10px",
+                    background: "none", border: "none", color: "#e2d9f3",
+                    cursor: "pointer", padding: "10px 14px", borderRadius: "10px",
+                    fontSize: "13px", fontWeight: "500", textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,92,246,0.2)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                >
+                  <Camera size={17} color="#a78bfa" />
+                  Camera
+                </button>
+
+                {/* Divider */}
+                <div style={{ height: "1px", background: "rgba(139,92,246,0.2)", margin: "2px 8px" }} />
+
+                {/* Choose from device */}
+                <button
+                  onClick={() => { setShowMediaMenu(false); imageFileRef.current?.click(); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "10px",
+                    background: "none", border: "none", color: "#e2d9f3",
+                    cursor: "pointer", padding: "10px 14px", borderRadius: "10px",
+                    fontSize: "13px", fontWeight: "500", textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(139,92,246,0.2)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                >
+                  <FolderOpen size={17} color="#a78bfa" />
+                  From Device
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
         <button
           onClick={finalizeComplaint}
@@ -948,14 +1488,14 @@ export default function ComplaintPage() {
 
         <button
           onClick={handleToggleListening}
-          disabled={isInitializing || isSpeaking || isImageUploading}
+          disabled={isInitializing || isSpeaking || isMediaUploading}
           style={{
             width: "64px",
             height: "64px",
             borderRadius: "50%",
             border: "none",
-            cursor: isInitializing || isSpeaking || isImageUploading ? "not-allowed" : "pointer",
-            backgroundColor: isImageUploading
+            cursor: isInitializing || isSpeaking || isMediaUploading ? "not-allowed" : "pointer",
+            backgroundColor: isMediaUploading
               ? "#4b5563"
               : isInitializing
                 ? "#4b5563"
@@ -1121,6 +1661,21 @@ export default function ComplaintPage() {
               PA (Punjabi)
             </option>
           </select>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "10px",
+              color: "#60a5fa",
+              opacity: 0.8,
+              borderLeft: "1px solid rgba(255,255,255,0.1)",
+              paddingLeft: "12px",
+            }}
+          >
+            <Shield size={12} />
+            <b>ENCRYPTED & HASHED</b>
+          </div>
         </div>
       </div>
 
@@ -1500,5 +2055,117 @@ export default function ComplaintPage() {
         </div>
       )}
     </div>
+
+      {/* ── In-browser Camera Modal ─────────────────────────────────────── */}
+      {showCameraModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "#000",
+          display: "flex", flexDirection: "column",
+        }}>
+          {/* Live camera feed */}
+          <video
+            ref={cameraVideoElRef}
+            autoPlay
+            muted
+            playsInline
+            style={{ flex: 1, width: "100%", objectFit: "cover" }}
+          />
+
+          {/* Top bar — mode tabs + close */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0,
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "16px 20px",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)",
+          }}>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {["photo", "video"].map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => !isRecording && setCameraMode(mode)}
+                  style={{
+                    background: cameraMode === mode ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.18)",
+                    border: "none", color: "white",
+                    cursor: isRecording ? "not-allowed" : "pointer",
+                    padding: "6px 16px", borderRadius: "20px",
+                    fontSize: "12px", fontWeight: "600", textTransform: "capitalize",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={closeCameraModal}
+              style={{
+                background: "rgba(255,255,255,0.18)", border: "none", color: "white",
+                cursor: "pointer", width: "36px", height: "36px", borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Recording indicator */}
+          {isRecording && (
+            <div style={{
+              position: "absolute", top: "68px", left: "50%", transform: "translateX(-50%)",
+              display: "flex", alignItems: "center", gap: "8px",
+              background: "rgba(239,68,68,0.85)", borderRadius: "20px",
+              padding: "5px 14px",
+            }}>
+              <div style={{
+                width: "8px", height: "8px", borderRadius: "50%", background: "white",
+                animation: "pulse 1s infinite",
+              }} />
+              <span style={{ color: "white", fontSize: "12px", fontWeight: "700" }}>REC</span>
+            </div>
+          )}
+
+          {/* Bottom controls */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            display: "flex", justifyContent: "center", alignItems: "center",
+            padding: "32px 20px 52px",
+            background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)",
+          }}>
+            {cameraMode === "photo" ? (
+              /* Shutter button */
+              <button
+                onClick={capturePhoto}
+                style={{
+                  width: "72px", height: "72px", borderRadius: "50%",
+                  background: "white", border: "5px solid rgba(255,255,255,0.4)",
+                  cursor: "pointer", boxShadow: "0 0 24px rgba(255,255,255,0.35)",
+                }}
+              />
+            ) : (
+              /* Record / Stop button */
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                style={{
+                  width: "72px", height: "72px", borderRadius: "50%",
+                  background: isRecording ? "#ef4444" : "white",
+                  border: `5px solid ${isRecording ? "rgba(239,68,68,0.45)" : "rgba(255,255,255,0.4)"}`,
+                  cursor: "pointer",
+                  boxShadow: isRecording
+                    ? "0 0 28px rgba(239,68,68,0.7)"
+                    : "0 0 24px rgba(255,255,255,0.35)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s",
+                }}
+              >
+                {isRecording
+                  ? <div style={{ width: "22px", height: "22px", borderRadius: "4px", background: "white" }} />
+                  : <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#ef4444" }} />}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

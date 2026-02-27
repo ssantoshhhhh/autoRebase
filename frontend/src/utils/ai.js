@@ -52,6 +52,14 @@ export const getAIResponse = async (text, languageCode, context = {}) => {
   contextStr += ` You MUST reply ONLY in ${languageName}. Keep responses short, concise, and natural for voice synthesis. 
   Ask follow up questions one by one to gather complaint details: 1. Incident Type, 2. Location, 3. Description, 4. Date/Time.
   
+  --- CYBER SECURITY PROTOCOL ---
+  If the user's complaint relates to cybercrime (e.g., Financial Fraud, Phishing, Hacking, Cyber Bullying, or Identity Theft):
+  1. Immediately classify the incident as a Cybercrime.
+  2. Advise the user to call 1930 (National Cyber Crime Helpline) for financial fraud.
+  3. Provide a 'Cyber Security Tip' relevant to their issue (e.g., "Change your banking passwords immediately", "Do not click on suspicious links again").
+  4. Ensure these steps are integrated naturally into your empathetic conversation.
+  --- END PROTOCOL ---
+
   When you have gathered ALL the details, you must conclude by saying something like "Thank you, I am now filing your complaint." and you MUST append a JSON block at the very end like this:
   [[SUBMIT: {"incidentType": "...", "location": "...", "description": "...", "dateTime": "..."}]]`;
 
