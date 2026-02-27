@@ -31,6 +31,9 @@ import {
   ShieldAlert,
   Camera,
   FolderOpen,
+  Pencil,
+  Check,
+  FileText,
 } from "lucide-react";
 
 export default function ComplaintPage() {
@@ -1504,35 +1507,176 @@ export default function ComplaintPage() {
                     </div>
                   )}
 
-                  {/* --- Normal Text Bubble --- */}
-                  {!msg.type && (
+                  {/* --- Complaint Receipt Bubble --- */}
+                  {msg.type === "receipt" && msg.receipt && (
                     <div
                       style={{
-                        padding: "12px 18px",
-                        borderRadius:
-                          msg.role === "user"
-                            ? "20px 20px 4px 20px"
-                            : "20px 20px 20px 4px",
-                        backgroundColor:
-                          msg.role === "user"
-                            ? "#4f46e5"
-                            : "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        fontSize: "0.95rem",
-                        lineHeight: "1.5",
+                        padding: "20px",
+                        borderRadius: "20px 20px 20px 4px",
+                        backgroundColor: "rgba(16,185,129,0.06)",
+                        border: "1px solid rgba(16,185,129,0.3)",
+                        maxWidth: "340px",
+                        fontSize: "0.85rem",
                       }}
                     >
-                      {msg.text}
-                      <div
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+                        <CheckCircle2 size={20} color="#10b981" />
+                        <span style={{ fontWeight: 700, color: "#10b981", fontSize: "0.95rem" }}>
+                          Complaint Filed Successfully
+                        </span>
+                      </div>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "10px", padding: "12px", marginBottom: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "4px" }}>
+                          Tracking ID
+                        </div>
+                        <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#a78bfa", letterSpacing: "2px" }}>
+                          {msg.receipt.trackingId}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+                        {msg.receipt.station && (
+                          <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                            <MapPin size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#60a5fa" }} />
+                            <span>{msg.receipt.station}{msg.receipt.district ? `, ${msg.receipt.district}` : ""}</span>
+                          </div>
+                        )}
+                        {msg.receipt.incidentType && (
+                          <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                            <FileText size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#a78bfa" }} />
+                            <span>{msg.receipt.incidentType}</span>
+                          </div>
+                        )}
+                        {msg.receipt.priority && (
+                          <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: "2px", color: msg.receipt.priority === "URGENT" ? "#f87171" : "#fbbf24" }} />
+                            <span>Priority: {msg.receipt.priority}</span>
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: "8px", color: "rgba(255,255,255,0.7)" }}>
+                          <Clock size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#34d399" }} />
+                          <span>Filed at {msg.receipt.filedAt}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/track/${msg.receipt.trackingId}`)}
                         style={{
-                          fontSize: "10px",
-                          color: "rgba(255,255,255,0.3)",
-                          textAlign: "right",
-                          marginTop: "4px",
+                          width: "100%",
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: "rgba(139,92,246,0.2)",
+                          border: "1px solid rgba(139,92,246,0.4)",
+                          color: "#a78bfa",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
                         }}
                       >
-                        {msg.timestamp}
-                      </div>
+                        Track Complaint <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* --- Normal Text Bubble --- */}
+                  {!msg.type && (
+                    <div style={{ position: "relative" }}>
+                      {editingMessageId === msg.id ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: "220px", maxWidth: "420px" }}>
+                          <textarea
+                            value={editedText}
+                            onChange={(e) => setEditedText(e.target.value)}
+                            autoFocus
+                            rows={3}
+                            style={{
+                              padding: "12px 18px",
+                              borderRadius: "16px",
+                              background: "rgba(79,70,229,0.15)",
+                              border: "1px solid rgba(79,70,229,0.6)",
+                              color: "#fff",
+                              fontSize: "0.95rem",
+                              lineHeight: "1.5",
+                              resize: "none",
+                              outline: "none",
+                              width: "100%",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                            <button
+                              onClick={() => setEditingMessageId(null)}
+                              style={{ padding: "6px 14px", borderRadius: "8px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ccc", fontSize: "0.8rem", cursor: "pointer" }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveEdit(msg.id)}
+                              style={{ padding: "6px 14px", borderRadius: "8px", background: "rgba(79,70,229,0.5)", border: "1px solid rgba(79,70,229,0.7)", color: "#fff", fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                            >
+                              <Check size={13} /> Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ position: "relative" }}>
+                          <div
+                            style={{
+                              padding: "12px 18px",
+                              borderRadius:
+                                msg.role === "user"
+                                  ? "20px 20px 4px 20px"
+                                  : "20px 20px 20px 4px",
+                              backgroundColor:
+                                msg.role === "user"
+                                  ? "#4f46e5"
+                                  : "rgba(255,255,255,0.05)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              fontSize: "0.95rem",
+                              lineHeight: "1.5",
+                            }}
+                          >
+                            {msg.text}
+                            <div
+                              style={{
+                                fontSize: "10px",
+                                color: "rgba(255,255,255,0.3)",
+                                textAlign: "right",
+                                marginTop: "4px",
+                              }}
+                            >
+                              {msg.timestamp}
+                            </div>
+                          </div>
+                          {msg.role === "user" && (
+                            <button
+                              onClick={() => { setEditingMessageId(msg.id); setEditedText(msg.text); }}
+                              title="Edit message"
+                              style={{
+                                position: "absolute",
+                                top: "-10px",
+                                left: "-10px",
+                                width: "26px",
+                                height: "26px",
+                                borderRadius: "50%",
+                                background: "rgba(79,70,229,0.9)",
+                                border: "1px solid rgba(139,92,246,0.6)",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                opacity: 0.25,
+                                transition: "opacity 0.2s",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.25")}
+                            >
+                              <Pencil size={12} color="#c4b5fd" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
