@@ -15,8 +15,9 @@ router.get('/overview', superAdminScope, async (req, res, next) => {
       totalComplaints,
       byPriority,
       byStatus,
+      
       byIncidentType,
-      recentTrend,
+      
       avgResolutionTime,
     ] = await Promise.all([
       prisma.complaint.count({ where: filter }),
