@@ -23,6 +23,7 @@ const analyticsRoutes = require('./routes/analytics');
 const userRoutes = require('./routes/users');
 const imageAnalysisRoutes = require('./routes/imageAnalysis');
 const policeFaceDetectionRoutes = require('./routes/policeFaceDetection');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 
@@ -106,6 +107,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/image-analysis', imageAnalysisRoutes);
 app.use('/api/police', policeFaceDetectionRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use((req, res) => {
