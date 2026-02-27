@@ -15,7 +15,7 @@ router.get('/overview', superAdminScope, async (req, res, next) => {
       totalComplaints,
       byPriority,
       byStatus,
-      
+      recentTrend,
       byIncidentType,
       
       avgResolutionTime,
