@@ -11,13 +11,16 @@ const router = express.Router();
 // ─── Multer Configuration (memory storage, no disk writes) ───────────────────
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB max
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max (videos)
     fileFilter: (req, file, cb) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        if (allowed.includes(file.mimetype)) {
+        const allowed = [
+            'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+            'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
+        ];
+        if (allowed.includes(file.mimetype) || file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
             cb(null, true);
         } else {
-            cb(new Error('Unsupported file type. Allowed: JPEG, PNG, WEBP, GIF.'));
+            cb(new Error('Unsupported file type. Allowed: images and videos.'));
         }
     },
 });
@@ -44,6 +47,26 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
     const { complaintId, uploaderId } = req.body;
 
     logger.info(`[imageAnalysis] Received: ${req.file.originalname} | ${(req.file.size / 1024).toFixed(1)} KB | ${req.file.mimetype}`);
+
+    const isVideo = req.file.mimetype.startsWith('video/');
+
+    // ─── Videos: skip AI analysis, return accepted response ─────────────────
+    if (isVideo) {
+        logger.info('[imageAnalysis] Video file received — skipping AI analysis.');
+        return res.status(200).json({
+            success: true,
+            filename: req.file.originalname,
+            filesize: req.file.size,
+            module1: {
+                status: 'completed',
+                isAiGenerated: false,
+                confidence: 0,
+                reason: 'Video files are not analysed for AI generation.',
+                forensicAnalysis: null,
+                processingTimeMs: 0,
+            },
+        });
+    }
 
     try {
         const result = await runImageAnalysis(req.file.buffer, req.file.mimetype);
@@ -93,10 +116,23 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
             ...(evidenceRecord && { evidenceId: evidenceRecord.id }),
         });
     } catch (err) {
-        logger.error('[imageAnalysis] Analysis failed:', err.message);
-        return res.status(500).json({
-            success: false,
-            error: err.message || 'Internal server error during image analysis.',
+        const errJson = JSON.stringify(err, Object.getOwnPropertyNames(err));
+        logger.error(`[imageAnalysis] Analysis failed — full error: ${errJson}`);
+
+        // Return 200 with a degraded result so the upload bubble never shows an error
+        return res.status(200).json({
+            success: true,
+            filename: req.file.originalname,
+            filesize: req.file.size,
+            module1: {
+                status: 'failed',
+                isAiGenerated: false,
+                confidence: 0,
+                reason: 'Analysis service temporarily unavailable.',
+                forensicAnalysis: null,
+                processingTimeMs: 0,
+                error: err.message || 'Unknown error',
+            },
         });
     }
 });
