@@ -439,6 +439,20 @@ export default function ComplaintDetailPage() {
             🚨 EMERGENCY
           </span>
         )}
+        {(complaint.linksAsA?.length > 0 || complaint.linksAsB?.length > 0) && (
+          <span
+            style={{
+              padding: "3px 10px",
+              borderRadius: "12px",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              background: "rgba(139, 92, 246, 0.2)",
+              color: "#8b5cf6",
+            }}
+          >
+            🔗 LINKED
+          </span>
+        )}
         <div style={{ flex: 1 }} />
         {/* Risk score */}
         {complaint.priorityScore > 0 && (
@@ -1158,75 +1172,10 @@ export default function ComplaintDetailPage() {
             </div>
           )}
 
-          {/* Status Update */}
-          <div className="card">
-            <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
-              Update Status
-            </h4>
-            <select
-              id="status-select"
-              className="input"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              style={{ marginBottom: "10px" }}
-            >
-              {STATUS_ORDER.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace("_", " ")}
-                </option>
-              ))}
-            </select>
-            <button
-              className="btn btn-primary btn-sm w-full"
-              onClick={handleStatusChange}
-              disabled={selectedStatus === complaint.status}
-            >
-              Update Status
-            </button>
-          </div>
-
-          {/* Officer Assignment */}
-          {["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role) &&
-            officers.length > 0 && (
-              <div className="card">
-                <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
-                  Assign Officer
-                </h4>
-                <p
-                  style={{
-                    fontSize: "0.8rem",
-                    color: "var(--clr-text-muted)",
-                    marginBottom: "10px",
-                  }}
-                >
-                  Currently: {complaint.assignedOfficer?.name || "Unassigned"}
-                </p>
-                <select
-                  id="officer-select"
-                  className="input"
-                  value={selectedOfficer}
-                  onChange={(e) => setSelectedOfficer(e.target.value)}
-                  style={{ marginBottom: "10px" }}
-                >
-                  <option value="">Select Officer</option>
-                  {officers.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name} ({o._count?.assignedComplaints || 0} cases)
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn btn-primary btn-sm w-full"
-                  onClick={handleAssign}
-                  disabled={!selectedOfficer}
-                >
-                  Assign
-                </button>
-              </div>
-            )}
-
           {/* Jurisdiction Transfer (Migration) */}
-          {["STATION_ADMIN", "SUPER_ADMIN"].includes(policeUser?.role) && (
+          {["STATION_ADMIN", "SUPER_ADMIN", "GLOBAL_ADMIN", "OFFICER"].includes(
+            policeUser?.role,
+          ) && (
             <div
               className="card"
               style={{ border: "1px solid rgba(139, 92, 246, 0.2)" }}
@@ -1292,6 +1241,158 @@ export default function ComplaintDetailPage() {
                 >
                   {isMigrating ? "Processing..." : "Transfer Case →"}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Status Update */}
+          <div className="card">
+            <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+              Update Status
+            </h4>
+            <select
+              id="status-select"
+              className="input"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              style={{ marginBottom: "10px" }}
+            >
+              {STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn btn-primary btn-sm w-full"
+              onClick={handleStatusChange}
+              disabled={selectedStatus === complaint.status}
+            >
+              Update Status
+            </button>
+          </div>
+
+          {/* Officer Assignment */}
+          {["STATION_ADMIN", "SUPER_ADMIN", "GLOBAL_ADMIN"].includes(
+            policeUser?.role,
+          ) &&
+            officers.length > 0 && (
+              <div className="card">
+                <h4 style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+                  Assign Officer
+                </h4>
+                <p
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "var(--clr-text-muted)",
+                    marginBottom: "10px",
+                  }}
+                >
+                  Currently: {complaint.assignedOfficer?.name || "Unassigned"}
+                </p>
+                <select
+                  id="officer-select"
+                  className="input"
+                  value={selectedOfficer}
+                  onChange={(e) => setSelectedOfficer(e.target.value)}
+                  style={{ marginBottom: "10px" }}
+                >
+                  <option value="">Select Officer</option>
+                  {officers.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name} ({o._count?.assignedComplaints || 0} cases)
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-primary btn-sm w-full"
+                  onClick={handleAssign}
+                  disabled={!selectedOfficer}
+                >
+                  Assign
+                </button>
+              </div>
+            )}
+
+          {/* Linked Cases */}
+          {(complaint.linksAsA?.length > 0 ||
+            complaint.linksAsB?.length > 0) && (
+            <div
+              className="card"
+              style={{ border: "1px solid rgba(139, 92, 246, 0.2)" }}
+            >
+              <h4
+                style={{
+                  marginBottom: "12px",
+                  fontSize: "0.95rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <span style={{ color: "var(--clr-primary)" }}>🔗</span> Linked
+                Complaints
+              </h4>
+              <div style={{ display: "grid", gap: "8px" }}>
+                {[
+                  ...complaint.linksAsA.map((l) => ({
+                    ...l.complaintB,
+                    reason: l.linkReason,
+                  })),
+                  ...complaint.linksAsB.map((l) => ({
+                    ...l.complaintA,
+                    reason: l.linkReason,
+                  })),
+                ].map((c, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => navigate(`/police/complaints/${c.id}`)}
+                    style={{
+                      padding: "10px",
+                      borderRadius: "8px",
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid var(--clr-border)",
+                      fontSize: "0.82rem",
+                      cursor: "pointer",
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.06)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(255,255,255,0.03)")
+                    }
+                  >
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--clr-primary-light)",
+                      }}
+                    >
+                      {c.trackingId}
+                    </div>
+                    <div
+                      style={{
+                        color: "var(--clr-text-muted)",
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      {c.incidentType} • {c.status}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "var(--clr-text-faint)",
+                        fontStyle: "italic",
+                        marginTop: "2px",
+                      }}
+                    >
+                      Reason: {c.reason}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

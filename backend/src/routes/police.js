@@ -161,6 +161,20 @@ router.get('/complaints/:id', async (req, res, next) => {
         evidence: true,
         updates: { orderBy: { createdAt: 'asc' } },
         station: { select: { id: true, stationName: true, district: true } },
+        linksAsA: {
+          include: {
+            complaintB: {
+              select: { id: true, trackingId: true, incidentType: true, status: true }
+            }
+          }
+        },
+        linksAsB: {
+          include: {
+            complaintA: {
+              select: { id: true, trackingId: true, incidentType: true, status: true }
+            }
+          }
+        },
       },
     });
 
@@ -292,7 +306,7 @@ router.patch('/complaints/:id/status', enforceStationScope, async (req, res, nex
 // PATCH /api/police/complaints/:id/migrate
 // Transfers complaint to another jurisdiction
 router.patch('/complaints/:id/migrate', 
-  requireRole('STATION_ADMIN', 'SUPER_ADMIN', 'GLOBAL_ADMIN'),
+  requireRole('STATION_ADMIN', 'SUPER_ADMIN', 'GLOBAL_ADMIN', 'OFFICER'),
   async (req, res, next) => {
     try {
       const { targetStationId, reason } = req.body;
