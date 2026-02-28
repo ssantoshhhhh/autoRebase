@@ -5,6 +5,7 @@ const { authenticatePolice, requireRole, enforceStationScope, superAdminScope } 
 const { AppError } = require('../middleware/errorHandler');
 const { sendSMS } = require('../services/smsService');
 const { logger } = require('../utils/logger');
+const { generateFormalFIR } = require('../services/firService');
 
 // All police routes require authentication
 router.use(authenticatePolice);
@@ -461,6 +462,58 @@ router.patch('/station', enforceStationScope, requireRole('STATION_ADMIN', 'SUPE
 
     res.json({ message: 'Station details updated', station: updated });
   } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/police/complaints/:id/generate-fir
+// Generates (or retrieves cached) a formal Section 154 CrPC FIR from the complaint transcript.
+router.post('/complaints/:id/generate-fir', async (req, res, next) => {
+  try {
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: { select: { name: true, mobileNumber: true, aadhaarMasked: true } },
+        station: { select: { stationName: true, district: true, state: true } },
+      },
+    });
+
+    if (!complaint) throw new AppError('Complaint not found', 404, 'NOT_FOUND');
+
+    // Authorization check
+    const isStationStaff = complaint.stationId === req.stationId;
+    const isPrivileged = ['SUPER_ADMIN', 'GLOBAL_ADMIN'].includes(req.policeUser.role);
+    if (!isStationStaff && !isPrivileged) {
+      throw new AppError('Access denied: outside your jurisdiction', 403, 'FORBIDDEN');
+    }
+
+    // Return cached FIR if it was previously generated
+    const existing = complaint.structuredJson;
+    if (existing && existing.fir_data) {
+      return res.json({ firData: existing.fir_data, cached: true });
+    }
+
+    // Generate fresh FIR using AI
+    const result = await generateFormalFIR({
+      transcript: complaint.transcript,
+      summaryText: complaint.summaryText,
+      incidentType: complaint.incidentType,
+      trackingId: complaint.trackingId,
+      user: complaint.user,
+      station: complaint.station,
+      createdAt: complaint.createdAt,
+    });
+
+    // Cache the generated FIR inside structuredJson to avoid regenerating
+    const updatedJson = { ...(complaint.structuredJson || {}), fir_data: result.data };
+    await prisma.complaint.update({
+      where: { id: req.params.id },
+      data: { structuredJson: updatedJson },
+    });
+
+    res.json({ firData: result.data, cached: false });
+  } catch (error) {
+    logger.error('[generate-fir] Error:', error);
     next(error);
   }
 });

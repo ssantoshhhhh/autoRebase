@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../utils/api";
@@ -181,6 +181,10 @@ export default function ComplaintDetailPage() {
   const [selectedTargetStation, setSelectedTargetStation] = useState("");
   const [migrationReason, setMigrationReason] = useState("");
   const [isMigrating, setIsMigrating] = useState(false);
+  const [firData, setFirData] = useState(null);
+  const [firLoading, setFirLoading] = useState(false);
+  const [firError, setFirError] = useState(null);
+  const firGeneratedRef = useRef(false);
 
   const token = localStorage.getItem("reva_police_token");
   const headers = { Authorization: `Bearer ${token}` };
@@ -188,6 +192,13 @@ export default function ComplaintDetailPage() {
   useEffect(() => {
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    if (complaint && !firGeneratedRef.current) {
+      firGeneratedRef.current = true;
+      generateFIR(complaint.id);
+    }
+  }, [complaint?.id]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -288,6 +299,24 @@ export default function ComplaintDetailPage() {
     }
   };
 
+  const generateFIR = async (complaintId) => {
+    if (firData || firLoading) return;
+    setFirLoading(true);
+    setFirError(null);
+    try {
+      const res = await api.post(
+        `/api/police/complaints/${complaintId}/generate-fir`,
+        {},
+        { headers },
+      );
+      setFirData(res.data.firData);
+    } catch (err) {
+      setFirError(err.response?.data?.error || "Failed to generate FIR");
+    } finally {
+      setFirLoading(false);
+    }
+  };
+
   const handleMigrate = async () => {
     if (!selectedTargetStation) return toast.error("Select target station");
     setIsMigrating(true);
@@ -308,7 +337,10 @@ export default function ComplaintDetailPage() {
 
   const handlePrint = () => {
     const printContent = document.getElementById("print-root");
-    if (!printContent) return;
+    if (!printContent) {
+      toast.error("FIR not yet generated. Please wait.");
+      return;
+    }
 
     const printWindow = window.open("", "_blank");
     printWindow.document.write(`
@@ -321,12 +353,14 @@ export default function ComplaintDetailPage() {
               padding: 40px; 
               color: #000; 
               background: #fff; 
-              line-height: 1.5;
+              line-height: 1.7;
+              font-size: 14px;
             }
-            .card { background: #fff !important; }
-            h2 { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 15px; }
+            table { border-collapse: collapse; width: 100%; }
+            td, th { border: 1px solid #999; padding: 8px 12px; }
+            h2 { text-align: center; margin-bottom: 8px; }
+            h4 { border-bottom: 2px solid #000; padding-bottom: 6px; text-transform: uppercase; }
             .no-print { display: none !important; }
-            .badge, .btn { display: none !important; }
             @page { margin: 2cm; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           </style>
@@ -338,7 +372,6 @@ export default function ComplaintDetailPage() {
     `);
     printWindow.document.close();
     printWindow.focus();
-    // Small delay to ensure styles and images (if any) are considered
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
@@ -695,242 +728,352 @@ export default function ComplaintDetailPage() {
                 </div>
               )}
 
-              {/* SECTION 2: FORMAL FIR REPORT */}
-              <div
-                id="print-root"
-                className="card printable-area"
-                style={{
-                  background: "#fff",
-                  color: "#1a1a1a",
-                  padding: "50px",
-                  boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                  fontFamily: '"Times New Roman", Times, serif',
-                }}
-              >
+              {/* SECTION 2: FORMAL FIR REPORT — Section 154 CrPC */}
+              {firLoading && (
                 <div
                   style={{
                     textAlign: "center",
-                    marginBottom: "40px",
-                    borderBottom: "2px solid #000",
-                    paddingBottom: "20px",
+                    padding: "40px",
+                    color: "var(--clr-text-muted)",
+                    fontSize: "0.95rem",
                   }}
                 >
-                  <h2
+                  <div
                     style={{
-                      fontSize: "1.6rem",
-                      color: "#000",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
+                      width: 32,
+                      height: 32,
+                      border: "3px solid var(--clr-border)",
+                      borderTopColor: "var(--clr-primary)",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                      margin: "0 auto 16px",
                     }}
-                  >
-                    First Information Report (AI-Generated)
-                  </h2>
-                  <div style={{ fontSize: "0.9rem", fontWeight: 600 }}>
-                    (Computer Form as per State Police Standards)
-                  </div>
+                  />
+                  Generating formal FIR from transcript…
                 </div>
+              )}
 
+              {firError && (
                 <div
+                  className="card"
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "30px",
-                    marginBottom: "30px",
+                    background: "rgba(255,59,48,0.08)",
+                    border: "1px solid rgba(255,59,48,0.3)",
+                    padding: "20px",
+                    color: "#ff3b30",
+                    fontSize: "0.9rem",
                   }}
                 >
-                  <div style={{ border: "1px solid #ddd", padding: "10px" }}>
-                    <div style={{ fontWeight: 700 }}>
-                      FIR No:{" "}
-                      <span style={{ fontWeight: 400 }}>
-                        {complaint.trackingId}
-                      </span>
-                    </div>
-                    <div style={{ fontWeight: 700 }}>
-                      Status:{" "}
-                      <span style={{ fontWeight: 400 }}>
-                        {complaint.status}
-                      </span>
-                    </div>
-                    <div style={{ fontWeight: 700 }}>
-                      Station:{" "}
-                      <span style={{ fontWeight: 400 }}>
-                        {complaint.station?.stationName}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ border: "1px solid #ddd", padding: "10px" }}>
-                    <div style={{ fontWeight: 700 }}>
-                      Date/Time Filed:{" "}
-                      <span style={{ fontWeight: 400 }}>
-                        {new Date(complaint.createdAt).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                    <div style={{ fontWeight: 700 }}>
-                      Incident Type:{" "}
-                      <span style={{ fontWeight: 400 }}>
-                        {complaint.incidentType}
-                      </span>
-                    </div>
-                    <div style={{ fontWeight: 700 }}>
-                      Priority:{" "}
-                      <span style={{ fontWeight: 400 }}>
-                        {complaint.priorityLevel}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "25px" }}>
-                  <h5
-                    style={{
-                      borderBottom: "1px solid #000",
-                      marginBottom: "10px",
-                      textTransform: "uppercase",
-                      fontSize: "0.9rem",
+                  ⚠️ FIR generation failed: {firError}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: "16px" }}
+                    onClick={() => {
+                      setFirError(null);
+                      generateFIR(complaint.id);
                     }}
                   >
-                    1. Complainant Details
-                  </h5>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "20px",
-                      fontSize: "0.95rem",
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 700 }}>Name:</span>{" "}
-                      {complaint.isAnonymous
-                        ? "UNDER PROTECTED IDENTITY (ANONYMOUS)"
-                        : complaint.user?.name || "N/A"}
-                    </div>
-                    <div>
-                      <span style={{ fontWeight: 700 }}>Mobile:</span>{" "}
-                      {complaint.user?.mobileNumber || "N/A"}
-                    </div>
-                    <div>
-                      <span style={{ fontWeight: 700 }}>Identification:</span>{" "}
-                      {complaint.user?.aadhaarMasked
-                        ? `Aadhaar (${complaint.user.aadhaarMasked})`
-                        : "NOT PROVIDED"}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "25px" }}>
-                  <h5
-                    style={{
-                      borderBottom: "1px solid #000",
-                      marginBottom: "10px",
-                      textTransform: "uppercase",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    2. Brief Facts / Summary
-                  </h5>
-                  <div
-                    style={{
-                      padding: "10px",
-                      background: "#f9f9f9",
-                      border: "1px solid #eee",
-                      fontSize: "0.95rem",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {complaint.summaryText
-                      ? complaint.summaryText
-                          .split(/(?<=[.!?])\s+/)
-                          .filter((s) => s.trim())
-                          .map((sentence, idx) => (
-                            <div key={idx} style={{ marginBottom: "8px" }}>
-                              {sentence}
-                            </div>
-                          ))
-                      : "Extracted summary pending..."}
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "25px" }}>
-                  <h5
-                    style={{
-                      borderBottom: "1px solid #000",
-                      marginBottom: "10px",
-                      textTransform: "uppercase",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    3. Extracted Key Information
-                  </h5>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "10px",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    {Object.entries(structured)
-                      .slice(0, 10)
-                      .map(
-                        ([k, v]) =>
-                          k !== "integrity_envelope" &&
-                          typeof v !== "object" && (
-                            <div key={k}>
-                              <span
-                                style={{
-                                  fontWeight: 600,
-                                  textTransform: "capitalize",
-                                }}
-                              >
-                                {k.replace(/_/g, " ")}:
-                              </span>{" "}
-                              {String(v)}
-                            </div>
-                          ),
-                      )}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: "60px",
-                  }}
-                >
-                  <div style={{ textAlign: "center" }}>
-                    <div
-                      style={{
-                        width: "150px",
-                        borderBottom: "1px solid #000",
-                        marginBottom: "5px",
-                      }}
-                    ></div>
-                    <div style={{ fontSize: "0.7rem" }}>
-                      Authorized Digital Signature
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div
-                      style={{
-                        width: "150px",
-                        borderBottom: "1px solid #000",
-                        marginBottom: "5px",
-                      }}
-                    ></div>
-                    <div style={{ fontSize: "0.7rem" }}>
-                      Investigating Officer
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: "center", marginTop: "30px" }}>
-                  <button className="btn btn-primary" onClick={handlePrint}>
-                    🖨️ Print Final FIR
+                    Retry
                   </button>
                 </div>
-              </div>
+              )}
+
+              {firData && (
+                <div
+                  id="print-root"
+                  className="card printable-area"
+                  style={{
+                    background: "#fff",
+                    color: "#1a1a1a",
+                    padding: "50px",
+                    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                    fontFamily: '"Times New Roman", Times, serif',
+                    fontSize: "0.97rem",
+                    lineHeight: 1.7,
+                  }}
+                >
+                  {/* ── Header ── */}
+                  <div
+                    style={{
+                      textAlign: "center",
+                      marginBottom: "30px",
+                      borderBottom: "3px double #000",
+                      paddingBottom: "20px",
+                    }}
+                  >
+                    <div style={{ fontSize: "0.85rem", letterSpacing: "2px", marginBottom: "6px" }}>GOVERNMENT OF INDIA</div>
+                    <h2
+                      style={{
+                        fontSize: "1.5rem",
+                        color: "#000",
+                        marginBottom: "6px",
+                        textTransform: "uppercase",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      First Information Report
+                    </h2>
+                    <div style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: "4px" }}>
+                      (Complaint Statement)
+                    </div>
+                    <div style={{ fontSize: "0.85rem" }}>(Under Section 154 CrPC)</div>
+                  </div>
+
+                  {/* ── Top meta row ── */}
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      marginBottom: "24px",
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    <tbody>
+                      <tr>
+                        <td
+                          style={{
+                            border: "1px solid #999",
+                            padding: "8px 12px",
+                            width: "50%",
+                          }}
+                        >
+                          <strong>FIR No.:</strong> {complaint.trackingId}
+                        </td>
+                        <td
+                          style={{ border: "1px solid #999", padding: "8px 12px" }}
+                        >
+                          <strong>Date &amp; Time of Filing:</strong>{" "}
+                          {new Date(complaint.createdAt).toLocaleString("en-IN")}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td
+                          style={{ border: "1px solid #999", padding: "8px 12px" }}
+                        >
+                          <strong>Police Station:</strong>{" "}
+                          {complaint.station?.stationName},{" "}
+                          {complaint.station?.district}
+                        </td>
+                        <td
+                          style={{ border: "1px solid #999", padding: "8px 12px" }}
+                        >
+                          <strong>Status:</strong> {complaint.status}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* ── Numbered fields ── */}
+                  {[
+                    { no: "1.", label: "Name of Complainant", value: complaint.isAnonymous ? "UNDER PROTECTED IDENTITY (ANONYMOUS)" : firData.complainant_name },
+                    { no: "2.", label: "Father's / Husband's Name", value: firData.fathers_or_husbands_name },
+                    { no: "3.", label: "Age", value: firData.age },
+                    { no: "4.", label: "Gender", value: firData.gender },
+                    { no: "5.", label: "Occupation", value: firData.occupation },
+                    { no: "6.", label: "Residential Address", value: firData.address },
+                    { no: "7.", label: "Contact Number", value: complaint.isAnonymous ? "WITHHELD" : firData.contact_number },
+                    { no: "8.", label: "Aadhaar (Masked)", value: complaint.user?.aadhaarMasked || "Not Provided" },
+                  ].map(({ no, label, value }) => (
+                    <div
+                      key={no}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "28px 220px 1fr",
+                        gap: "8px",
+                        marginBottom: "10px",
+                        paddingBottom: "10px",
+                        borderBottom: "1px dashed #ccc",
+                        alignItems: "start",
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: "#555" }}>{no}</span>
+                      <span style={{ fontWeight: 700 }}>{label}:</span>
+                      <span>{value || "Not mentioned"}</span>
+                    </div>
+                  ))}
+
+                  {/* ── Occurrence details ── */}
+                  <div style={{ marginTop: "20px", marginBottom: "6px" }}>
+                    <h4
+                      style={{
+                        borderBottom: "2px solid #000",
+                        paddingBottom: "6px",
+                        fontSize: "1rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        marginBottom: "14px",
+                      }}
+                    >
+                      Particulars of Occurrence
+                    </h4>
+                  </div>
+
+                  {[
+                    { no: "9.", label: "Date of Occurrence", value: firData.date_of_occurrence },
+                    { no: "10.", label: "Time of Occurrence", value: firData.time_of_occurrence },
+                    { no: "11.", label: "Place of Occurrence", value: firData.place_of_occurrence },
+                    { no: "12.", label: "Nature of Offence", value: firData.nature_of_offence },
+                    { no: "13.", label: "Applicable IPC / BNS Sections", value: firData.ipc_sections },
+                  ].map(({ no, label, value }) => (
+                    <div
+                      key={no}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "28px 220px 1fr",
+                        gap: "8px",
+                        marginBottom: "10px",
+                        paddingBottom: "10px",
+                        borderBottom: "1px dashed #ccc",
+                        alignItems: "start",
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: "#555" }}>{no}</span>
+                      <span style={{ fontWeight: 700 }}>{label}:</span>
+                      <span>{value || "Not mentioned"}</span>
+                    </div>
+                  ))}
+
+                  {/* ── Incident-specific details (property / accused etc.) ── */}
+                  <div
+                    style={{
+                      marginTop: "20px",
+                      marginBottom: "16px",
+                      padding: "16px",
+                      border: "1px solid #ccc",
+                      background: "#fafafa",
+                    }}
+                  >
+                    <strong style={{ display: "block", marginBottom: "10px" }}>
+                      14. {firData.incident_specific_details_label || "Incident Details"}:
+                    </strong>
+                    <div style={{ whiteSpace: "pre-line", lineHeight: 1.8 }}>
+                      {firData.incident_specific_details || "Not mentioned"}
+                    </div>
+                  </div>
+
+                  {/* ── Brief facts ── */}
+                  <div
+                    style={{
+                      marginBottom: "16px",
+                      padding: "16px",
+                      border: "1px solid #ccc",
+                      background: "#fafafa",
+                    }}
+                  >
+                    <strong style={{ display: "block", marginBottom: "10px" }}>
+                      15. Brief Facts of the Case:
+                    </strong>
+                    <p style={{ margin: 0, textAlign: "justify", lineHeight: 1.9 }}>
+                      {firData.brief_facts}
+                    </p>
+                  </div>
+
+                  {/* ── Witnesses ── */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "28px 220px 1fr",
+                      gap: "8px",
+                      marginBottom: "10px",
+                      paddingBottom: "10px",
+                      borderBottom: "1px dashed #ccc",
+                      alignItems: "start",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: "#555" }}>16.</span>
+                    <span style={{ fontWeight: 700 }}>Witnesses:</span>
+                    <span>{firData.witnesses || "None mentioned"}</span>
+                  </div>
+
+                  {/* ── Action requested ── */}
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      marginBottom: "30px",
+                      padding: "12px 16px",
+                      border: "1px solid #bbb",
+                      background: "#f5f5f5",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    <strong>Prayer / Action Requested: </strong>
+                    {firData.action_requested ||
+                      "I request you to kindly register this complaint and take necessary legal action to trace and apprehend the offender(s). I am ready to cooperate with the investigation."}
+                  </div>
+
+                  {/* ── Signature block ── */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: "30px",
+                      marginTop: "50px",
+                      paddingTop: "20px",
+                      borderTop: "1px solid #000",
+                    }}
+                  >
+                    <div style={{ textAlign: "center" }}>
+                      <div
+                        style={{
+                          borderBottom: "1px solid #000",
+                          marginBottom: "6px",
+                          height: "40px",
+                        }}
+                      />
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>
+                        Signature / Thumb Impression
+                      </div>
+                      <div style={{ fontSize: "0.8rem" }}>
+                        of Complainant
+                      </div>
+                      <div style={{ fontSize: "0.85rem", marginTop: "4px" }}>
+                        ({complaint.isAnonymous ? "Anonymous" : firData.complainant_name})
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div
+                        style={{
+                          borderBottom: "1px solid #000",
+                          marginBottom: "6px",
+                          height: "40px",
+                        }}
+                      />
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>
+                        Signature of Investigating
+                      </div>
+                      <div style={{ fontSize: "0.8rem" }}>Officer</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div
+                        style={{
+                          borderBottom: "1px solid #000",
+                          marginBottom: "6px",
+                          height: "40px",
+                        }}
+                      />
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>Station SHO Seal</div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginTop: "20px",
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    <span><strong>Date:</strong> {firData.date_of_filing}</span>
+                    <span><strong>Place:</strong> {firData.place_of_filing}</span>
+                  </div>
+
+                  <div style={{ textAlign: "center", marginTop: "30px" }} className="no-print">
+                    <button className="btn btn-primary" onClick={handlePrint}>
+                      🖨️ Print Final FIR
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
