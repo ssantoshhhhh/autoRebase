@@ -48,6 +48,9 @@ export const getAIResponse = async (text, languageCode, context = {}) => {
   if (context.userName) contextStr += ` You are speaking to ${context.userName}.`;
   if (context.location) contextStr += ` The user is currently in ${context.location}.`;
   if (context.mobile) contextStr += ` Their verified mobile is ${context.mobile}.`;
+  if (context.userFathersName) contextStr += ` Father's/Husband's name: ${context.userFathersName}.`;
+  if (context.userOccupation) contextStr += ` Occupation: ${context.userOccupation}.`;
+  if (context.userAddress) contextStr += ` Residential address: ${context.userAddress}.`;
 
   // Age-adaptive behavior
   if (context.userCategory === 'child') {

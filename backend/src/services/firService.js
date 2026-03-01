@@ -17,22 +17,37 @@ async function generateFormalFIR(complaintData) {
     });
 
     const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'sih-vision';
-    const { transcript, summaryText, incidentType, trackingId, user, station, createdAt } = complaintData;
+    const { transcript, summaryText, incidentType, trackingId, user, station, createdAt, structuredJson } = complaintData;
 
     const complainantName = user?.name || 'Not Provided';
     const complainantMobile = user?.mobileNumber || 'Not Provided';
     const stationName = station ? `${station.stationName}, ${station.district || ''}` : 'N/A';
     const filingDate = new Date(createdAt || Date.now()).toLocaleDateString('en-IN');
 
+    // Pull any profile fields that were pre-collected during chat intake
+    const knownAge = structuredJson?.userAge || structuredJson?.age || 'Extract from transcript';
+    const knownFathersName = structuredJson?.userFathersName || structuredJson?.fathers_or_husbands_name || 'Extract from transcript';
+    const knownOccupation = structuredJson?.userOccupation || structuredJson?.occupation || 'Extract from transcript';
+    const knownAddress = structuredJson?.userAddress || structuredJson?.address || 'Extract from transcript';
+
     const systemPrompt = `You are a senior Indian Police Officer who drafts First Information Reports (FIR) under Section 154 of the CrPC. 
 You extract facts precisely from the complainant's conversation transcript and fill every FIR field accurately. 
+IMPORTANT: The chat transcript may be in any Indian language (Telugu, Hindi, Tamil, Kannada, Marathi, Bengali, Gujarati, Malayalam, Punjabi, or English). 
+You MUST read and understand the transcript regardless of its language and extract all relevant facts accurately.
+Always produce the FIR field values in English regardless of the transcript language.
 You must return ONLY a valid JSON object — no markdown, no extra text.`;
 
     const userPrompt = `Analyse the complainant's chat transcript below and extract all available facts to fill a formal FIR under Section 154 CrPC.
 
-KNOWN DETAILS (from system registration):
+NOTE: The transcript may be in any Indian language. Extract all facts regardless of language and return all field values in English.
+
+KNOWN DETAILS (from system registration and chat intake — use these directly, do NOT override unless the transcript clearly contradicts):
 - Complainant Name: ${complainantName}
 - Complainant Mobile: ${complainantMobile}
+- Father's / Husband's Name: ${knownFathersName}
+- Age: ${knownAge}
+- Occupation: ${knownOccupation}
+- Residential Address: ${knownAddress}
 - Police Station: ${stationName}
 - FIR/Tracking No: ${trackingId}
 - Date Filed: ${filingDate}
@@ -44,14 +59,14 @@ ${transcript}
 SUMMARY (if available):
 ${summaryText || 'N/A'}
 
-Return ONLY a JSON object with exactly these keys (use "Not mentioned" if info is absent in transcript):
+Return ONLY a JSON object with exactly these keys (use "Not mentioned" if info is absent):
 {
-  "complainant_name": "Full name from transcript or registration",
-  "fathers_or_husbands_name": "Father's / husband's name if mentioned",
-  "age": "Age in years, e.g. '17 years'",
-  "gender": "Male / Female / Other",
-  "occupation": "Occupation if mentioned",
-  "address": "Full residential address as mentioned in transcript",
+  "complainant_name": "Full name from registration",
+  "fathers_or_husbands_name": "Use KNOWN DETAILS above if provided, else extract from transcript",
+  "age": "Use KNOWN DETAILS above if provided, else extract from transcript. Format: '17 years'",
+  "gender": "Male / Female / Other — infer from transcript or name",
+  "occupation": "Use KNOWN DETAILS above if provided, else extract from transcript",
+  "address": "Use KNOWN DETAILS above if provided, else extract from transcript",
   "contact_number": "Mobile number from registration or transcript",
   "date_of_occurrence": "DD/MM/YYYY format — extract from transcript",
   "time_of_occurrence": "Approximate time, e.g. 'Approximately 4:00 AM'",

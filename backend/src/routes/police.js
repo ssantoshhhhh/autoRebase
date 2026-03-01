@@ -502,6 +502,7 @@ router.post('/complaints/:id/generate-fir', async (req, res, next) => {
       user: complaint.user,
       station: complaint.station,
       createdAt: complaint.createdAt,
+      structuredJson: complaint.structuredJson,
     });
 
     // Cache the generated FIR inside structuredJson to avoid regenerating

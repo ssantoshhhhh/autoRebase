@@ -85,6 +85,14 @@ export default function ComplaintPage() {
   const [userAge, setUserAge] = useState(null);
   const [userCategory, setUserCategory] = useState(null); // "child" | "adult" | "senior"
 
+  // ── Personal info intake state ─────────────────────────────────────────
+  const [isFathersNameCollected, setIsFathersNameCollected] = useState(false);
+  const [isOccupationCollected, setIsOccupationCollected] = useState(false);
+  const [isAddressCollected, setIsAddressCollected] = useState(false);
+  const [userFathersName, setUserFathersName] = useState(null);
+  const [userOccupation, setUserOccupation] = useState(null);
+  const [userAddress, setUserAddress] = useState(null);
+
   // ── Edit message state ────────────────────────────────────────────────
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedText, setEditedText] = useState("");
@@ -335,6 +343,11 @@ export default function ComplaintPage() {
           incidentLocation: aiData?.location || lastAiDataRef.current?.location || "Detected",
           incidentDescription: aiData?.description || lastAiDataRef.current?.description || "See transcript",
           incidentDateTime: aiData?.dateTime || lastAiDataRef.current?.dateTime || new Date().toISOString(),
+          // Personal intake fields for FIR
+          userFathersName: userFathersName || null,
+          userOccupation: userOccupation || null,
+          userAddress: userAddress || null,
+          userAge: userAge || null,
         },
         evidenceIds: pendingEvidenceIds,
       });
@@ -464,27 +477,189 @@ export default function ComplaintPage() {
       setIsAgeCollected(true);
       ageMessageIdRef.current = userMsg.id; // remember which message contained the age
 
-      const confirmations = {
+      // After age, ask father's / husband's name
+      const fatherNameQuestions = {
+        en: "Thank you. May I know your father's or husband's name?",
+        hi: "धन्यवाद। क्या मैं आपके पिता या पति का नाम जान सकता हूँ?",
+        te: "ధన్యవాదాలు. మీ తండ్రి లేదా భర్త పేరు చెప్పగలరా?",
+        ta: "நன்றி. உங்கள் தந்தை அல்லது கணவரின் பெயர் சொல்லுங்கள்?",
+        kn: "ಧನ್ಯವಾದ. ನಿಮ್ಮ ತಂದೆ ಅಥವಾ ಪತಿಯ ಹೆಸರು ಏನು?",
+        mr: "धन्यवाद. तुमच्या वडिलांचे किंवा पतीचे नाव सांगाल का?",
+        bn: "ধন্যবাদ। আপনার বাবার বা স্বামীর নাম জানতে পারি কি?",
+        gu: "આભાર. શું હું તમારા પિતા અથવા પતિનું નામ જાણી શકું?",
+        ml: "നന്ദി. നിങ്ങളുടെ അച്ഛൻറെ അല്ലെങ്കിൽ ഭർത്താവിൻറെ പേര് പറയാമോ?",
+        pa: "ਧੰਨਵਾਦ। ਕੀ ਮੈਂ ਤੁਹਾਡੇ ਪਿਤਾ ਜਾਂ ਪਤੀ ਦਾ ਨਾਮ ਜਾਣ ਸਕਦਾ ਹਾਂ?",
+      };
+      const fnQ = fatherNameQuestions[language] || fatherNameQuestions.en;
+      addAIMsg(fnQ);
+      speakReply(fnQ);
+      return;
+    }
+
+    // ── STEP 2.5: Collect father's / husband's name ────────────────────
+    if (!isFathersNameCollected) {
+      const name = text.trim();
+      if (name.length < 2) {
+        const retryFN = {
+          en: "I didn't catch that. Please tell me your father's or husband's name.",
+          hi: "कृपया अपने पिता या पति का नाम दोबारा बताएं।",
+          te: "దయచేసి మీ తండ్రి లేదా భర్త పేరు మళ్ళీ చెప్పండి.",
+          ta: "தயவுசெய்து உங்கள் தந்தை அல்லது கணவரின் பெயரை மீண்டும் சொல்லுங்கள்.",
+          kn: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ತಂದೆ ಅಥವಾ ಪತಿಯ ಹೆಸರನ್ನು ಮತ್ತೆ ಹೇಳಿ.",
+          mr: "कृपया तुमच्या वडिलांचे किंवा पतीचे नाव पुन्हा सांगा.",
+          bn: "দয়া করে আপনার বাবার বা স্বামীর নাম আবার বলুন।",
+          gu: "કૃપા કરી તમારા પિતા અથવા પતિનું નામ ફરી કહો.",
+          ml: "ദയവായി നിങ്ങളുടെ അച്ഛൻ അല്ലെങ്കിൽ ഭർത്താവിൻറെ പേര് വീണ്ടും പറയൂ.",
+          pa: "ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਪਿਤਾ ਜਾਂ ਪਤੀ ਦਾ ਨਾਮ ਦੁਬਾਰਾ ਦੱਸੋ।",
+        };
+        const r = retryFN[language] || retryFN.en;
+        addAIMsg(r);
+        speakReply(r);
+        return;
+      }
+      setUserFathersName(name);
+      setIsFathersNameCollected(true);
+
+      const occQuestions = {
+        en: "Thank you. What is your occupation?",
+        hi: "धन्यवाद। आपका व्यवसाय क्या है?",
+        te: "ధన్యవాదాలు. మీ వృత్తి లేదా పని ఏమిటి?",
+        ta: "நன்றி. உங்கள் தொழில் என்ன?",
+        kn: "ಧನ್ಯವಾದ. ನಿಮ್ಮ ವೃತ್ತಿ ಏನು?",
+        mr: "धन्यवाद. तुमचा व्यवसाय काय आहे?",
+        bn: "ধন্যবাদ। আপনার পেশা কী?",
+        gu: "આભાર. તમારો વ્યવસાય શું છે?",
+        ml: "നന്ദി. നിങ്ങളുടെ തൊഴിൽ എന്താണ്?",
+        pa: "ਧੰਨਵਾਦ। ਤੁਹਾਡਾ ਕਿੱਤਾ ਕੀ ਹੈ?",
+      };
+      const oQ = occQuestions[language] || occQuestions.en;
+      addAIMsg(oQ);
+      speakReply(oQ);
+      return;
+    }
+
+    // ── STEP 2.6: Collect occupation ───────────────────────────────────
+    if (!isOccupationCollected) {
+      const occ = text.trim();
+      if (occ.length < 2) {
+        const retryOcc = {
+          en: "Please tell me your occupation (e.g., Student, Farmer, Engineer, etc.).",
+          hi: "कृपया अपना व्यवसाय बताएं (जैसे: छात्र, किसान, इंजीनियर, आदि)।",
+          te: "దయచేసి మీ వృత్తి చెప్పండి (ఉదా: విద్యార్థి, రైతు, ఇంజినీర్).",
+          ta: "தயவுசெய்து உங்கள் தொழிலை சொல்லுங்கள் (எ.கா: மாணவர், விவசாயி, பொறியியலாளர்).",
+          kn: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ವೃತ್ತಿಯನ್ನು ಹೇಳಿ (ಉದಾ: ವಿದ್ಯಾರ್ಥಿ, ರೈತ, ಇಂಜಿನಿಯರ್).",
+          mr: "कृपया तुमचा व्यवसाय सांगा (उदा: विद्यार्थी, शेतकरी, अभियंता).",
+          bn: "দয়া করে আপনার পেশা বলুন (যেমন: ছাত্র, কৃষক, ইঞ্জিনিয়ার)।",
+          gu: "કૃપા કરી તમારો વ્યવસાય જણાવો (દા.ત.: વિદ્યાર્થી, ખેડૂત, ઇજનેર).",
+          ml: "ദയവായി നിങ്ങളുടെ തൊഴിൽ പറയൂ (ഉദാ: വിദ്യാർഥി, കർഷകൻ, എഞ്ചിനീയർ).",
+          pa: "ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਕਿੱਤਾ ਦੱਸੋ (ਜਿਵੇਂ: ਵਿਦਿਆਰਥੀ, ਕਿਸਾਨ, ਇੰਜੀਨੀਅਰ)।",
+        };
+        const r = retryOcc[language] || retryOcc.en;
+        addAIMsg(r);
+        speakReply(r);
+        return;
+      }
+      setUserOccupation(occ);
+      setIsOccupationCollected(true);
+
+      const addrQuestions = {
+        en: "Thank you. Please tell me your complete residential address.",
+        hi: "धन्यवाद। कृपया अपना पूरा निवास पता बताएं।",
+        te: "ధన్యవాదాలు. దయచేసి మీ పూర్తి నివాస చిరునామా చెప్పండి.",
+        ta: "நன்றி. தயவுசெய்து உங்கள் முழு வீட்டு முகவரியைச் சொல்லுங்கள்.",
+        kn: "ಧನ್ಯವಾದ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಸಂಪೂರ್ಣ ವಾಸಸ್ಥಳದ ವಿಳಾಸ ಹೇಳಿ.",
+        mr: "धन्यवाद. कृपया तुमचा पूर्ण निवासी पत्ता सांगा.",
+        bn: "ধন্যবাদ। দয়া করে আপনার সম্পূর্ণ বাড়ির ঠিকানা বলুন।",
+        gu: "આભાર. કૃપા કરીને તમારું સંપૂર્ણ રહેઠાણ સરનામું જણાવો.",
+        ml: "നന്ദി. ദയവായി നിങ്ങളുടെ പൂർണ്ണ വാസസ്ഥല വിലാസം പറയൂ.",
+        pa: "ਧੰਨਵਾਦ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਪੂਰਾ ਰਿਹਾਇਸ਼ੀ ਪਤਾ ਦੱਸੋ।",
+      };
+      const aQ = addrQuestions[language] || addrQuestions.en;
+      addAIMsg(aQ);
+      speakReply(aQ);
+      return;
+    }
+
+    // ── STEP 2.7: Collect residential address ─────────────────────────
+    if (!isAddressCollected) {
+      const addr = text.trim();
+      if (addr.length < 5) {
+        const retryAddr = {
+          en: "Please provide your complete residential address including house number, street, and city.",
+          hi: "कृपया अपना पूरा पता दें — मकान नंबर, गली और शहर सहित।",
+          te: "దయచేసి మీ పూర్తి చిరునామా చెప్పండి — ఇంటి నంబర్, వీధి మరియు నగరం సహా.",
+          ta: "தயவுசெய்து வீட்டு எண், தெரு மற்றும் நகரம் உள்பட உங்கள் முழு முகவரியை வழங்குங்கள்.",
+          kn: "ದಯವಿಟ್ಟು ಮನೆ ಸಂಖ್ಯೆ, ಬೀದಿ ಮತ್ತು ನಗರ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಂಪೂರ್ಣ ವಿಳಾಸ ನೀಡಿ.",
+          mr: "कृपया घर क्रमांक, रस्ता आणि शहरासह तुमचा पूर्ण पत्ता द्या.",
+          bn: "দয়া করে বাড়ির নম্বর, রাস্তা এবং শহরসহ আপনার সম্পূর্ণ ঠিকানা দিন।",
+          gu: "કૃપા કરી ઘર નંબર, ગલી અને શહેર સહિત તમારું સંપૂર્ণ સરનામું આપો.",
+          ml: "ദയവായി വീട് നമ്പർ, തെരുവ്, നഗരം ഉൾക്കൊള്ളുന്ന നിങ്ങളുടെ പൂർണ്ണ വിലാസം നൽകൂ.",
+          pa: "ਕਿਰਪਾ ਕਰਕੇ ਮਕਾਨ ਨੰਬਰ, ਗਲੀ ਅਤੇ ਸ਼ਹਿਰ ਸਮੇਤ ਆਪਣਾ ਪੂਰਾ ਪਤਾ ਦਿਓ।",
+        };
+        const r = retryAddr[language] || retryAddr.en;
+        addAIMsg(r);
+        speakReply(r);
+        return;
+      }
+      setUserAddress(addr);
+      setIsAddressCollected(true);
+
+      const proceedMessages = {
         en: {
-          child: "Thank you, dear. I will guide you in a simple and safe way. Now, how can I help you today, dear?",
-          adult: "Thank you. Let's proceed with your complaint. How can I help you today?",
-          senior: "Thank you. I will guide you step by step. How can I help you today?",
+          child: "Thank you, dear. I have noted all your details. Now, please tell me what happened. I am here to help you.",
+          adult: "Thank you. I have noted all your details. Now, how can I help you today? Please describe what happened.",
+          senior: "Thank you. I have noted all your details. Please take your time and tell me what happened.",
         },
         hi: {
-          child: "धन्यवाद, प्रिय। मैं आपको सरल और सुरक्षित तरीके से मार्गदर्शन करूंगा। अब, मैं आज आपकी कैसे मदद कर सकता हूँ?",
-          adult: "धन्यवाद। चलिए आपकी शिकायत दर्ज करते हैं। मैं आज आपकी कैसे मदद कर सकता हूँ?",
-          senior: "धन्यवाद। मैं आपको एक-एक कदम से मार्गदर्शन करूंगा। मैं आज आपकी कैसे मदद कर सकता हूँ?",
+          child: "धन्यवाद, प्रिय। मैंने आपकी सभी जानकारी नोट कर ली है। अब बताइए क्या हुआ। मैं आपकी मदद के लिए यहाँ हूँ।",
+          adult: "धन्यवाद। मैंने आपकी सभी जानकारी नोट कर ली है। अब बताइए, मैं आज आपकी कैसे मदद करूं?",
+          senior: "धन्यवाद। मैंने आपकी सभी जानकारी नोट कर ली है। कृपया अपने समय से बताइए क्या हुआ।",
         },
         te: {
-          child: "ధన్యవాదాలు, నేస్తమా. నేను మీకు సులభంగా మరియు సురక్షితంగా మార్గదర్శనం చేస్తాను. ఇప్పుడు, నేను మీకు ఎలా సహాయపడగలను?",
-          adult: "ధన్యవాదాలు. మీ ఫిర్యాదు నమోదు చేద్దాం. నేను మీకు ఎలా సహాయపడగలను?",
-          senior: "ధన్యవాదాలు. నేను మీకు అడుగడుగూ మార్గదర్శనం చేస్తాను. నేను మీకు ఎలా సహాయపడగలను?",
+          child: "ధన్యవాదాలు, నేస్తమా. మీ వివరాలన్నీ నమోదు చేసాను. ఇప్పుడు ఏం జరిగిందో చెప్పండి. నేను మీకు సహాయపడేందుకు ఇక్కడ ఉన్నాను.",
+          adult: "ధన్యవాదాలు. మీ వివరాలన్నీ నమోదు చేసాను. ఇప్పుడు ఏం జరిగిందో చెప్పండి.",
+          senior: "ధన్యవాదాలు. మీ వివరాలన్నీ నమోదు చేసాను. దయచేసి మీకు సౌకర్యంగా ఉన్నప్పుడు చెప్పండి ఏం జరిగిందో.",
+        },
+        ta: {
+          child: "நன்றி. உங்கள் விவரங்கள் குறிப்பிட்டுள்ளேன். இப்போது என்ன நடந்தது என்று சொல்லுங்கள்.",
+          adult: "நன்றி. உங்கள் விவரங்கள் குறிப்பிட்டுள்ளேன். இப்போது நான் எப்படி உதவலாம்?",
+          senior: "நன்றி. உங்கள் விவரங்கள் குறிப்பிட்டுள்ளேன். தயவுசெய்து என்ன நடந்தது என்று சொல்லுங்கள்.",
+        },
+        kn: {
+          child: "ಧನ್ಯವಾದ. ನಿಮ್ಮ ವಿವರಗಳನ್ನು ದಾಖಲಿಸಿದ್ದೇನೆ. ಈಗ ಏನಾಯಿತು ಎಂದು ಹೇಳಿ.",
+          adult: "ಧನ್ಯವಾದ. ನಿಮ್ಮ ವಿವರಗಳನ್ನು ದಾಖಲಿಸಿದ್ದೇನೆ. ಇಂದು ನಾನು ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?",
+          senior: "ಧನ್ಯವಾದ. ನಿಮ್ಮ ವಿವರಗಳನ್ನು ದಾಖಲಿಸಿದ್ದೇನೆ. ದಯವಿಟ್ಟು ಏನಾಯಿತು ಎಂದು ಹೇಳಿ.",
+        },
+        mr: {
+          child: "धन्यवाद. तुमचे तपशील नोंदवले आहेत. आता काय झाले ते सांगा.",
+          adult: "धन्यवाद. तुमचे तपशील नोंदवले आहेत. मी आज तुमची कशी मदत करू?",
+          senior: "धन्यवाद. तुमचे तपशील नोंदवले आहेत. काय झाले ते सांगा.",
+        },
+        bn: {
+          child: "ধন্যবাদ। আপনার তথ্য নোট করেছি। এখন কী হয়েছে বলুন।",
+          adult: "ধন্যবাদ। আপনার তথ্য নোট করেছি। আজ আমি কীভাবে সাহায্য করতে পারি?",
+          senior: "ধন্যবাদ। আপনার তথ্য নোট করেছি। কী হয়েছে বলুন।",
+        },
+        gu: {
+          child: "આભાર. તમારી વિગતો નોંધ લઈ છે. હવે શું થયું તે જણાવો.",
+          adult: "આભાર. તમારી વિગતો નોંધ લઈ છે. આવ, હું આજ તમારી કેવી રીતે મદદ કરી શકું?",
+          senior: "આભાર. તમારી વિગતો નોંધ લઈ છે. શું થયું તે જણાવો.",
+        },
+        ml: {
+          child: "നന്ദി. നിങ്ങളുടെ വിവരങ്ങൾ കുറിച്ചു. ഇനി എന്ത് സംഭവിച്ചു എന്ന് പറയൂ.",
+          adult: "നന്ദി. നിങ്ങളുടെ വിവരങ്ങൾ കുറിച്ചു. ഇന്ന് ഞാൻ എങ്ങനെ സഹായിക്കണം?",
+          senior: "നന്ദി. നിങ്ങളുടെ വിവരങ്ങൾ കുറിച്ചു. എന്ത് സംഭവിച്ചു എന്ന് പറയൂ.",
+        },
+        pa: {
+          child: "ਧੰਨਵਾਦ। ਤੁਹਾਡੇ ਵੇਰਵੇ ਨੋਟ ਕਰ ਲਏ। ਹੁਣ ਦੱਸੋ ਕੀ ਹੋਇਆ।",
+          adult: "ਧੰਨਵਾਦ। ਤੁਹਾਡੇ ਵੇਰਵੇ ਨੋਟ ਕਰ ਲਏ। ਅੱਜ ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?",
+          senior: "ਧੰਨਵਾਦ। ਤੁਹਾਡੇ ਵੇਰਵੇ ਨੋਟ ਕਰ ਲਏ। ਕੀ ਹੋਇਆ ਦੱਸੋ।",
         },
       };
-      const langConfirm = confirmations[language] || confirmations.en;
-      const confirm = langConfirm[category];
-      addAIMsg(confirm);
-      speakReply(confirm);
+      const langProc = proceedMessages[language] || proceedMessages.en;
+      const proceed = (langProc[userCategory] || langProc.adult);
+      addAIMsg(proceed);
+      speakReply(proceed);
       return;
     }
 
@@ -509,6 +684,9 @@ export default function ComplaintPage() {
         history: history.slice(-5), // Send last 5 messages for context
         userAge: userAge,
         userCategory: userCategory, // "child" | "adult" | "senior"
+        userFathersName: userFathersName,
+        userOccupation: userOccupation,
+        userAddress: userAddress,
       };
 
       // Call backend chat API instead of direct OpenAI call
